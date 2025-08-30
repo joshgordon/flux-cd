@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   creationTimestamp: null
+  namespace: default
   labels:
     run: nginx
   name: nginx
