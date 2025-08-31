@@ -28,7 +28,8 @@ spec:
     k8sServiceHost: k3s-prod.gordns.net
     k8sServicePort: 6443
     enableExternalIPs: "true"
-    enableL2Announcements: "true"
+    l2announcements:
+      enabled: true
     kubeProxyReplacement: "true"
     operator:
       replicas: 1
