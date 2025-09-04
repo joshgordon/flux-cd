@@ -21,8 +21,8 @@ spec:
       reconcileStrategy: ChartVersion
       sourceRef:
         name: ""
-    values:
-      nfs:
-        server: 10.3.14.61
-        path: /superfast/k8s
+      values:
+        nfs:
+          server: 10.3.14.61
+          path: /superfast/k8s
   interval: 1m0s
