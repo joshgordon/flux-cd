@@ -37,6 +37,9 @@ spec:
       serviceNodePort: null
       externalPort: 8200
       targetPort: 8200
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: vault.jmg.dev
   targetNamespace: openbao
   install:
     createNamespace: true
+
