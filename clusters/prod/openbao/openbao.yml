@@ -30,10 +30,13 @@ spec:
         enabled: true
         raft:
           enabled: true
-      ui:
-        enabled: true
-        serviceType: LoadBalancer
-        externalPort: 8200
+    ui:
+      enabled: true
+      serviceType: LoadBalancer
+      externalPort: 8200
+      serviceNodePort: null
+      externalPort: 8200
+      targetPort: 8200
   targetNamespace: openbao
   install:
     createNamespace: true
