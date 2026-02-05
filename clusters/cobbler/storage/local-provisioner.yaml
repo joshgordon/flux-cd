@@ -1,0 +1,24 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: local-path
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  ref:
+    tag: v0.0.34
+  url: https://github.com/rancher/local-path-provisioner/
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: local-path
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  path: ./deploy
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: local-path
