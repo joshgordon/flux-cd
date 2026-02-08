@@ -55,7 +55,7 @@ bao auth enable -path=kubernetes kubernetes
 kubectl config view --minify --flatten -ojson \
   | jq -r '.clusters[].cluster."certificate-authority-data"' \
   | base64 -d >/tmp/cacrt
-bao write auth/kubernetes-cluster001/config \
+bao write auth/kubernetes/config \
     kubernetes_host=https://kubernetes.default \
     kubernetes_ca_cert=@/tmp/cacrt
 ```
