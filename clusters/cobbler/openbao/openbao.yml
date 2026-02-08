@@ -1,0 +1,69 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: openbao
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  url: https://openbao.github.io/openbao-helm
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openbao
+  namespace: flux-system
+spec:
+  chart:
+    spec:
+      chart: openbao
+      reconcileStrategy: ChartVersion
+      sourceRef:
+        kind: HelmRepository
+        name: openbao
+  interval: 1m0s
+  values:
+    global:
+      tlsDisable: false
+    server:
+      dataStorage:
+        storageClass: local-path
+      extraEnvironmentVars:
+        VAULT_ADDR: "https://127.0.0.1:8200"
+        VAULT_CACERT: "/openbao/tls/ca.crt"
+      volumes:
+        - name: tls
+          secret:
+            secretName: vault-tls-cert
+      volumeMounts:
+        - name: tls
+          mountPath: /openbao/tls
+          readOnly: true
+      ha:
+        enabled: true
+        raft:
+          enabled: true
+          config: |
+            ui = true
+
+            listener "tcp" {
+              address = "[::]:8200"
+              cluster_address = "[::]:8201"
+              tls_cert_file = "/openbao/tls/tls.crt"
+              tls_key_file = "/openbao/tls/tls.key"
+            }
+
+            storage "raft" {
+              path = "/openbao/data"
+            }
+
+            service_registration "kubernetes" {}
+    ui:
+      enabled: true
+      serviceType: LoadBalancer
+      externalPort: 443
+      serviceNodePort: null
+      targetPort: 8200
+  targetNamespace: openbao
+  install:
+    createNamespace: true
