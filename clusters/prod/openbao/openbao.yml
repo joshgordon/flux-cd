@@ -1,4 +1,21 @@
 ---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openbao-tls
+  namespace: openbao
+spec:
+  secretName: openbao-tls
+  commonName: vault.jmg.dev
+  dnsNames:
+    - vault.jmg.dev
+  duration: 36h
+  renewBefore: 12h
+  issuerRef:
+    group: certmanager.step.sm
+    kind: StepClusterIssuer
+    name: jmg-issuer
+---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:

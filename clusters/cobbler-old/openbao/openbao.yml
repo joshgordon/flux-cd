@@ -24,7 +24,7 @@ spec:
   interval: 1m0s
   values:
     global:
-      tlsDisable: true
+      tlsDisable: false
     server:
       dataStorage:
         storageClass: local-path
@@ -49,9 +49,8 @@ spec:
             listener "tcp" {
               address = "[::]:8200"
               cluster_address = "[::]:8201"
-              // tls_cert_file = "/openbao/tls/tls.crt"
-              // tls_key_file = "/openbao/tls/tls.key"
-              tls_disable = true
+              tls_cert_file = "/openbao/tls/tls.crt"
+              tls_key_file = "/openbao/tls/tls.key"
 
             }
 
