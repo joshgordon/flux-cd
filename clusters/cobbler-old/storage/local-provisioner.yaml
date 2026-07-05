@@ -7,7 +7,7 @@ metadata:
 spec:
   interval: 1m0s
   ref:
-    tag: v0.0.34
+    tag: v0.0.36
   url: https://github.com/rancher/local-path-provisioner/
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
