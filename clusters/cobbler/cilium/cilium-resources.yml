@@ -1,0 +1,26 @@
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: l2-k8s-policy
+spec:
+  externalIPs: true
+  interfaces:
+  - ^en.*
+  loadBalancerIPs: true
+  nodeSelector:
+    matchExpressions:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+  serviceSelector:
+    matchLabels:
+      control-plane-svc: "true"
+---
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: l2-k8s-svc-pool
+spec:
+  blocks:
+  - start: 10.3.14.5
+    stop: 10.3.14.5
