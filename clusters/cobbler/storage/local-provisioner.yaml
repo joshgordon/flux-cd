@@ -22,3 +22,20 @@ spec:
   sourceRef:
     kind: GitRepository
     name: local-path
+  patches:
+    - target:
+        kind: ConfigMap
+        name: local-path-config
+        namespace: local-path-storage
+      patch: |
+        - op: replace
+          path: /data/config.json
+          value: |-
+            {
+              "nodePathMap":[
+                {
+                        "node":"DEFAULT_PATH_FOR_NON_LISTED_NODES",
+                        "paths":["/var/lib/local-path-provisioner"]
+                }
+              ]
+            }
