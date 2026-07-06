@@ -2,28 +2,28 @@
 apiVersion: cilium.io/v2alpha1
 kind: CiliumL2AnnouncementPolicy
 metadata:
-  name: l2-k8s-policy
+  name: l2-k8s-prod-policy
 spec:
   externalIPs: true
   interfaces:
-  - ^en.*
+    - ^en.*
   loadBalancerIPs: true
   nodeSelector:
     matchExpressions:
-    - key: node-role.kubernetes.io/control-plane
-      operator: Exists
+      - key: node-role.kubernetes.io/control-plane
+        operator: DoesNotExist
   serviceSelector:
     matchLabels:
-      control-plane-svc: "true"
+      expose: "true"
 ---
 apiVersion: cilium.io/v2
 kind: CiliumLoadBalancerIPPool
 metadata:
-  name: l2-k8s-svc-pool
+  name: l2-k8s-prod-pool
 spec:
   serviceSelector:
     matchLabels:
-      control-plane-svc: "true"
+      expose: "true"
   blocks:
-  - start: 10.3.14.5
-    stop: 10.3.14.5
+    - start: 10.3.14.48
+      stop: 10.3.14.63
