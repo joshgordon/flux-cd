@@ -80,7 +80,7 @@ spec:
       targetPort: 8200
       loadBalancerIP: ""
       extraLabels:
-        expose: true
+        expose: "true"
   targetNamespace: openbao
   install:
     createNamespace: true
