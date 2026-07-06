@@ -63,6 +63,7 @@ spec:
               cluster_address = "[::]:8201"
               #               tls_cert_file = "/openbao/tls/tls.crt"
               #               tls_key_file = "/openbao/tls/tls.key"
+              tls_disable = "true"
 
             }
 
