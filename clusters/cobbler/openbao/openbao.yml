@@ -39,18 +39,27 @@ spec:
               topologyKey: failure-domain.gordns.net
       dataStorage:
         storageClass: local-path
+      extraArgs: "-config=/etc/bao/config/seal.hcl"
+      volumes:
+        - name: seal-config
+          secret:
+            secretName: bao-seal-config
+      volumeMounts:
+        - name: seal-config
+          mountPath: /etc/bao/config
+          readOnly: true
       extraEnvironmentVars:
         VAULT_ADDR: "http://127.0.0.1:8200"
         # VAULT_ADDR: "https://127.0.0.1:8200"
         # VAULT_CACERT: "/openbao/tls/ca.crt"
-        # volumes:
-        #   - name: tls
-        #     secret:
-        #       secretName: vault-tls-cert
-        # volumeMounts:
-        #   - name: tls
-        #     mountPath: /openbao/tls
-        #     readOnly: true
+      # volumes:
+      #   - name: tls
+      #     secret:
+      #       secretName: vault-tls-cert
+      # volumeMounts:
+      #   - name: tls
+      #     mountPath: /openbao/tls
+      #     readOnly: true
       ha:
         enabled: true
         raft:
