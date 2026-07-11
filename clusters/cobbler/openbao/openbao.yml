@@ -28,7 +28,6 @@ spec:
       tlsDisable: true
       # tlsDisable: false
     server:
-      podManagementPolicy: "Parallel"
       affinity: |
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
