@@ -28,8 +28,7 @@ spec:
       tlsDisable: true
       # tlsDisable: false
     server:
-      statefulSet:
-        podManagementPolicy: "Parallel"
+      podManagementPolicy: "Parallel"
       affinity: |
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
