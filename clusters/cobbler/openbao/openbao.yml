@@ -43,7 +43,7 @@ spec:
             - |
               set -euo pipefail
 
-              BASE="https://github.com/${PLUGIN_REPO}/releases/download/${PLUGIN_VERSION}"
+              BASE="https://github.com./${PLUGIN_REPO}/releases/download/${PLUGIN_VERSION}"
               WORK="$(mktemp -d)"
               cd "$WORK"
 
