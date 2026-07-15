@@ -29,7 +29,7 @@ spec:
     server:
       extraInitContainers:
         - name: fetch-cloudflare-plugin
-          image: alpine:3.20
+          image: curlimages/curl
           env:
             - name: PLUGIN_VERSION
               value: "v1.1.5" # <-- bump this to upgrade
@@ -42,7 +42,6 @@ spec:
             - -c
             - |
               set -euo pipefail
-              apk add --no-cache curl >/dev/null
 
               BASE="https://github.com/${PLUGIN_REPO}/releases/download/${PLUGIN_VERSION}"
               WORK="$(mktemp -d)"
