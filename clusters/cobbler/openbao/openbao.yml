@@ -29,7 +29,7 @@ spec:
     server:
       extraInitContainers:
         - name: fetch-cloudflare-plugin
-          image: curlimages/curl
+          image: busybox:1.38-glibc
           env:
             - name: PLUGIN_VERSION
               value: "v1.1.5" # <-- bump this to upgrade
@@ -37,33 +37,49 @@ spec:
               value: "kalw/vault-cloudflare-secret-engine"
             - name: PLUGIN_NAME
               value: "vault-cloudflare-secret-engine"
+            - name: AMD64_SHA256
+              value: "2c244a9ef4babfb5393fbd648d265a8d3fcbd544cf0d023d6fe624519eead35e"
+            - name: ARM64_SHA256
+              value: "382b055119a8c03f0adefa8afdc412a1876a937b82307d466fd1951ad1b12fba"
           command:
             - sh
             - -c
             - |
               set -euo pipefail
 
-              BASE="https://github.com./${PLUGIN_REPO}/releases/download/${PLUGIN_VERSION}"
+              BASE="https://github.com/${PLUGIN_REPO}/releases/download/${PLUGIN_VERSION}"
+              # GoReleaser's default naming strips the leading "v" from the version
+              # in asset filenames, even though the release tag (used in the URL
+              # path above) keeps it -- so v1.1.5 the tag, but 1.1.5 the filename.
+              ASSET_VERSION="${PLUGIN_VERSION#v}"
               WORK="$(mktemp -d)"
               cd "$WORK"
 
-              echo "Fetching checksums for ${PLUGIN_VERSION}..."
-              curl -fsSL -o checksums.txt "${BASE}/checksums.txt"
+              verify() {
+                FILE="$1"; EXPECTED="$2"
+                ACTUAL="$(sha256sum "$FILE" | cut -d ' ' -f1)"
+                if [ "$ACTUAL" != "$EXPECTED" ]; then
+                  echo "checksum mismatch for $FILE: expected $EXPECTED, got $ACTUAL" >&2
+                  exit 1
+                fi
+              }
 
-              for ARCH in amd64 arm64; do
-                ASSET="${PLUGIN_NAME}_${PLUGIN_VERSION}_linux_${ARCH}"
-                echo "Fetching ${ASSET}..."
-                curl -fsSL -o "${ASSET}" "${BASE}/${ASSET}"
+              echo "Fetching ${PLUGIN_NAME}_${ASSET_VERSION}_linux_amd64..."
+              wget -q -O "${PLUGIN_NAME}_${ASSET_VERSION}_linux_amd64" \
+                "${BASE}/${PLUGIN_NAME}_${ASSET_VERSION}_linux_amd64"
+              verify "${PLUGIN_NAME}_${ASSET_VERSION}_linux_amd64" "$AMD64_SHA256"
+              cp "${PLUGIN_NAME}_${ASSET_VERSION}_linux_amd64" "/plugins/${PLUGIN_NAME}.amd64"
+              chmod 0755 "/plugins/${PLUGIN_NAME}.amd64"
 
-                echo "Verifying ${ASSET} against checksums.txt..."
-                grep "linux_${ARCH}" checksums.txt | sha256sum -c -
+              echo "Fetching ${PLUGIN_NAME}_${ASSET_VERSION}_linux_arm64..."
+              wget -q -O "${PLUGIN_NAME}_${ASSET_VERSION}_linux_arm64" \
+                "${BASE}/${PLUGIN_NAME}_${ASSET_VERSION}_linux_arm64"
+              verify "${PLUGIN_NAME}_${ASSET_VERSION}_linux_arm64" "$ARM64_SHA256"
+              cp "${PLUGIN_NAME}_${ASSET_VERSION}_linux_arm64" "/plugins/${PLUGIN_NAME}.arm64"
+              chmod 0755 "/plugins/${PLUGIN_NAME}.arm64"
 
-                cp "${ASSET}" "/plugins/${PLUGIN_NAME}.${ARCH}"
-                chmod 0755 "/plugins/${PLUGIN_NAME}.${ARCH}"
-              done
-
-              AMD64_SHA="$(grep 'linux_amd64' checksums.txt | awk '{print $1}')"
-              ARM64_SHA="$(grep 'linux_arm64' checksums.txt | awk '{print $1}')"
+              AMD64_SHA="$AMD64_SHA256"
+              ARM64_SHA="$ARM64_SHA256"
 
               echo "Writing arch-detecting wrapper..."
               cat > "/plugins/${PLUGIN_NAME}" <<WRAPPER
@@ -100,10 +116,10 @@ spec:
 
               echo "Done. Wrapper sha256 for OpenBao registration:"
               sha256sum "/plugins/${PLUGIN_NAME}"
-
           volumeMounts:
             - name: plugins
-              mountPath: /usr/local/libexec/vault
+              mountPath: /plugins
+
       affinity: |
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
