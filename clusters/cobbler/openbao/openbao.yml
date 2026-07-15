@@ -160,6 +160,7 @@ spec:
           config: |
             ui = true
 
+            plugin_directory = "/etc/bao/plugins"
             listener "tcp" {
               address = "[::]:8200"
               cluster_address = "[::]:8201"
