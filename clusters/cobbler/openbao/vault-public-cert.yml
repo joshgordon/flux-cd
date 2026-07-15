@@ -1,0 +1,18 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vault.cobbler.gordns.net
+  namespace: openbao
+spec:
+  # Secret names are always required.
+  secretName: vault-tls-cert
+  commonName: vault.cobbler.gordns.net
+
+  # At least one of commonName (possibly through literalSubject), dnsNames, uris, emailAddresses, ipAddresses or otherNames is required.
+  dnsNames:
+    - vault.cobbler.gordns.net
+
+  # Issuer references are always required.
+  issuerRef:
+    name: letsencrypt-issuer
+    kind: ClusterIssuer
