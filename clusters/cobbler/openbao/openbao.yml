@@ -40,7 +40,7 @@ spec:
         storageClass: local-path
       extraArgs: "-config=/etc/bao/config/seal.hcl"
       extraEnvironmentVars:
-        VAULT_ADDR: "https://vault.cobbler.gordns.net:8200"
+        VAULT_ADDR: "https://vault.cobbler.gordns.net"
       volumes:
         - name: seal-config
           secret:
@@ -79,7 +79,7 @@ spec:
     ui:
       enabled: true
       serviceType: LoadBalancer
-      externalPort: 8200
+      externalPort: 443
       activeOpenbaoPodOnly: true
       serviceNodePort: null
       targetPort: 8200
