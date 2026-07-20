@@ -118,7 +118,6 @@ bao policy write terraform-controller policy.hcl
 bao write auth/kubernetes/role/terraform-controller \
     bound_service_account_names=tf-runner \
     bound_service_account_namespaces=flux-system \
-    audience="vault://gordns-cobbler" \
     policies=terraform-controller \
     ttl=15m
 ```
@@ -129,3 +128,11 @@ Once this role exists, the `vault` provider in
 `terraform/environments/cobbler/providers.tf` authenticates as this pod
 automatically via its own projected service account token - no static token
 to manage.
+
+Deliberately **no `audience=...` here** (unlike the `cert-manager` role
+above): the provider just reads the pod's default projected SA token, which
+carries the cluster's default audience, not a custom one - setting `audience`
+to anything here makes Vault reject that token with "invalid audience (aud)
+claim". `audience="vault://gordns-cobbler"` only applies to cert-manager's
+own Vault issuer, which explicitly requests a token with that audience via
+its own TokenRequest call.

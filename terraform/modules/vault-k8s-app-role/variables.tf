@@ -21,9 +21,18 @@ variable "backend" {
 }
 
 variable "audience" {
-  description = "Audience claim to verify in the projected service account JWT. Must match what the app's Kubernetes auth config requests."
+  description = <<-EOT
+    Audience claim to verify in the presented JWT. Leave empty (default) unless
+    the consuming identity explicitly requests a custom-audience token via its
+    own TokenRequest call - a pod's default projected service account token
+    (e.g. what a plain `file("/var/run/secrets/.../token")` read gets you) has
+    no custom audience, so setting this would just make Vault reject it with
+    "invalid audience (aud) claim". cert-manager's vault-issuer role is the
+    one existing exception (it requests audience "vault://gordns-cobbler"
+    itself) - that role is hand-managed outside this module.
+  EOT
   type        = string
-  default     = "vault://gordns-cobbler"
+  default     = ""
 }
 
 variable "token_ttl" {
