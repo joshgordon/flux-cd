@@ -14,6 +14,7 @@ spec:
   # See terraform/README.md.
   approvePlan: ""
   serviceAccountName: tf-runner
+  storeReadablePlan: human
   sourceRef:
     kind: GitRepository
     name: flux-system
