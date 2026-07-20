@@ -1,0 +1,60 @@
+---
+# Identity the VaultDynamicSecret generator below authenticates as. No Role/
+# RoleBinding needed - external-secrets' own ClusterRole already grants its
+# controller SA cluster-wide `create` on serviceaccounts/token, so it can
+# impersonate any SA to auth to Vault (confirmed via
+# `kubectl get clusterrole external-secrets-external-secrets-controller -o yaml`).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloudflare-dns-token-reader
+  namespace: cert-manager
+---
+# Mints a fresh, short-lived Cloudflare API token from OpenBao's
+# vault-cloudflare-secret-engine plugin (cloudflare/creds/dns-editor) on each
+# reconcile. Unlike a SecretStore, a generator's Vault provider config is
+# self-contained here - it isn't shared with any ClusterSecretStore.
+apiVersion: generators.external-secrets.io/v1alpha1
+kind: VaultDynamicSecret
+metadata:
+  name: cloudflare-dns-editor-token
+  namespace: cert-manager
+spec:
+  path: "/cloudflare/creds/dns-editor"
+  method: GET
+  provider:
+    server: https://vault.cobbler.gordns.net
+    auth:
+      kubernetes:
+        mountPath: kubernetes
+        role: cert-manager-cloudflare-role
+        serviceAccountRef:
+          name: cloudflare-dns-token-reader
+---
+# Feeds letsencrypt-issuer's Cloudflare DNS01 solver
+# (clusters/cobbler/cert-manager/cert-manager-issuer.yml), which expects
+# secret cloudflare-api-token-secret / key api-token in this namespace.
+#
+# The role's ttl is 24h (terraform/environments/cobbler/cloudflare.tf) -
+# refreshInterval here is 18h so there's always a 6h+ buffer before the
+# in-use token's lease dies. Re-reading early doesn't interrupt anything:
+# each read mints a new token on a new independent lease, the old one just
+# expires on its own schedule.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: cloudflare-api-token
+  namespace: cert-manager
+spec:
+  refreshInterval: 18h
+  target:
+    name: cloudflare-api-token-secret
+    template:
+      data:
+        api-token: "{{ .token }}"
+  dataFrom:
+    - sourceRef:
+        generatorRef:
+          apiVersion: generators.external-secrets.io/v1alpha1
+          kind: VaultDynamicSecret
+          name: cloudflare-dns-editor-token

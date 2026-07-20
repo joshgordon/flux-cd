@@ -1,0 +1,20 @@
+---
+apiVersion: infra.contrib.fluxcd.io/v1alpha2
+kind: Terraform
+metadata:
+  name: cobbler
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  path: ./terraform/environments/cobbler
+  # Manual approval: leave blank (or a stale plan id) and the controller
+  # will plan but not apply. To approve, run:
+  #   kubectl -n flux-system get tf/cobbler
+  # copy the pending plan id from status, set it here, commit and push.
+  # See terraform/README.md.
+  approvePlan: ""
+  serviceAccountName: tf-runner
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
