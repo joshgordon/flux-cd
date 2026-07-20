@@ -100,13 +100,25 @@ same pattern as the `cert-manager` bootstrap above.
 
 ```hcl
 # Policy name: terraform-controller
-# Scoped to managing policies and kubernetes auth roles only - not root.
+# Scoped to managing policies, kubernetes auth roles, and the
+# cloudflare/role/dns-editor role - not root.
 path "sys/policies/acl/*" {
   capabilities = ["create", "read", "update", "delete", "list"]
 }
 
 path "auth/kubernetes/role/*" {
   capabilities = ["create", "read", "update", "delete", "list"]
+}
+
+path "cloudflare/role/dns-editor" {
+  capabilities = ["create", "read", "update", "delete"]
+}
+
+# The vault provider mints a scoped-down child token for its own use after
+# login (see providers.tf) - this lets it do that instead of using the raw
+# login token directly.
+path "auth/token/create" {
+  capabilities = ["create", "update"]
 }
 ```
 

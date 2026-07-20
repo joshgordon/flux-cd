@@ -14,20 +14,31 @@ resource "vault_generic_endpoint" "cloudflare_dns_editor_role" {
   data_json = jsonencode({
     token_type = "user"
     ttl        = "24h"
-    policies = [
+    # The plugin's `policies` field is TypeString - a JSON-encoded array as
+    # text, same as what `bao write policies='[...]'` sends from the CLI (CLI
+    # args are always plain strings). A native HCL/JSON array here fails with
+    # "expected type 'string', got unconvertible type '[]interface {}'", so
+    # this takes a raw JSON string instead - paste straight from the plugin's
+    # hosted policy builder (https://kalw.github.io/vault-cloudflare-secret-engine/).
+    policies = <<-EOT
+    [
       {
-        effect = "allow"
-        permission_groups = [
-          { name = "Account DNS Settings Write" },
-          { name = "DNS Write" },
-          { name = "Zone Read" },
-        ]
-        resources = {
-          "com.cloudflare.api.account.zone.2ee0444a5f89c9c46f48f65264e4ada8" = "*"
-          "com.cloudflare.api.account.zone.cb86beacfcc5f893c6c6ab59458540de" = "*"
+        "effect": "allow",
+        "permission_groups": [
+          {
+            "name": "DNS Write"
+          },
+          {
+            "name": "Zone Read"
+          }
+        ],
+        "resources": {
+          "com.cloudflare.api.account.zone.2ee0444a5f89c9c46f48f65264e4ada8": "*",
+          "com.cloudflare.api.account.zone.cb86beacfcc5f893c6c6ab59458540de": "*"
         }
-      },
+      }
     ]
+  EOT
   })
 }
 
