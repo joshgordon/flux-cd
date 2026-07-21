@@ -46,7 +46,7 @@ metadata:
   name: cloudflare-api-token
   namespace: cert-manager
 spec:
-  refreshInterval: 18h
+  refreshInterval: 1h
   target:
     name: cloudflare-api-token-secret
     template:

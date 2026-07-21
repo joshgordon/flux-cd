@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mindwtr
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mindwtr-data
+  namespace: mindwtr
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mindwtr
+  name: mindwtr
+  namespace: mindwtr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mindwtr
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mindwtr
+    spec:
+      containers:
+      - image: ghcr.io/dongdongbh/mindwtr-cloud:latest
+        name: mindwtr-cloud
+        envFrom:
+          - secretRef:
+              name: mindwtr-api-key
+        volumeMounts:
+          - name: data
+            mountPath: /app/cloud_data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mindwtr-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: mindwtr
+  name: mindwtr
+  namespace: mindwtr
+spec:
+  ports:
+  - port: 8787
+    protocol: TCP
+    targetPort: 8787
+  selector:
+    app: mindwtr
+  type: ClusterIP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mindwtr-http
+  namespace: mindwtr
+
+spec:
+  parentRefs:
+    - name: internal
+      namespace: internal-gateway
+  hostnames:
+    - mindwtr.cobbler.gordns.net
+    - mindwtr-api.cobbler.gordns.net
+  rules:
+    - backendRefs:
+        - name: mindwtr
+          port: 8787
