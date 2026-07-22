@@ -1,0 +1,86 @@
+# Longhorn distributed block storage.
+#
+# NOTE: this is a starting sketch, not yet battle-tested. Review before relying on it.
+#
+# ---------------------------------------------------------------------------
+# NODE PREREQUISITES (must exist on every node that will store replicas):
+#   - open-iscsi:  `dnf install -y iscsi-initiator-utils && systemctl enable --now iscsid`
+#   - nfs client:  `dnf install -y nfs-utils`   (only needed for RWX volumes)
+#   These are NOT installed by the chart. Either bake them into the node image
+#   or apply Longhorn's official installers:
+#     https://raw.githubusercontent.com/longhorn/longhorn/v1.8.1/deploy/prerequisite/longhorn-iscsi-installation.yaml
+#     https://raw.githubusercontent.com/longhorn/longhorn/v1.8.1/deploy/prerequisite/longhorn-nfs-installation.yaml
+#
+# STORAGE NODE SELECTION:
+#   createDefaultDiskLabeledNodes (below) is TRUE, so Longhorn only provisions a
+#   disk on nodes explicitly labeled. Label ONLY the fat-disk nodes so it never
+#   tries to consume the 8Gi root FS on the amd64 VMs (until those are resized):
+#     kubectl label node bob.gordns.net    node.longhorn.io/create-default-disk=true
+#     kubectl label node krusty.gordns.net node.longhorn.io/create-default-disk=true
+#     kubectl label node mel.gordns.net    node.longhorn.io/create-default-disk=true
+#   (bob/krusty/mel are the ~1TB arm64 workers. Add the amd64 n0x nodes here once
+#    their VM disks are grown -> then bump defaultReplicaCount and you get 6-node,
+#    cross-arch, cross-failure-domain spread.)
+# ---------------------------------------------------------------------------
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: longhorn
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  url: https://charts.longhorn.io
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: longhorn
+  namespace: flux-system
+spec:
+  interval: 1m0s
+  chart:
+    spec:
+      chart: longhorn
+      version: "1.8.1" # verify/bump against https://github.com/longhorn/longhorn/releases
+      reconcileStrategy: ChartVersion
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn
+  targetNamespace: longhorn-system
+  install:
+    createNamespace: true
+  values:
+    persistence:
+      # Do NOT make longhorn the cluster-default StorageClass yet -- leave
+      # local-path as default so nothing auto-migrates. Provision onto longhorn
+      # explicitly via storageClassName: longhorn.
+      defaultClass: false
+      defaultClassReplicaCount: 3
+      # Keep a replica on the same node as the workload for read locality.
+      defaultDataLocality: best-effort
+
+    defaultSettings:
+      # Only nodes labeled node.longhorn.io/create-default-disk=true get a disk.
+      createDefaultDiskLabeledNodes: true
+      # Where replica data lives on each node. Ideally a dedicated disk/mount,
+      # NOT the root filesystem -- add a second volume mounted here per node.
+      defaultDataPath: /var/lib/longhorn
+      defaultReplicaCount: 3
+      # Require replicas on DIFFERENT nodes (false = hard anti-affinity).
+      replicaSoftAntiAffinity: false
+      # Don't let a degraded node's replicas silently pile onto survivors.
+      storageOverProvisioningPercentage: 100
+      # Reclaim space from deleted volumes.
+      storageMinimalAvailablePercentage: 10
+      # TODO(backups): point at Garage/S3 once it exists, e.g.
+      #   backupTarget: s3://longhorn@us-east-1/
+      #   backupTargetCredentialSecret: longhorn-backup-credentials
+
+    # UI is ClusterIP for now. Expose later via an HTTPRoute on the internal
+    # gateway (same pattern as mindwtr) rather than the chart's ingress.
+    ingress:
+      enabled: false
+
+    longhornUI:
+      replicas: 1

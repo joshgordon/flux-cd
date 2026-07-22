@@ -1,0 +1,27 @@
+# HTTPRoute exposing the Longhorn UI via the internal gateway.
+# Mirrors clusters/cobbler/mindwtr/mindwtr.yml's HTTPRoute.
+#
+# !! SECURITY: the Longhorn UI has NO built-in authentication -- anyone who can
+# !! reach this hostname gets full control of cluster storage (delete volumes,
+# !! etc). The internal gateway is HTTPS + presumably reachable only on the
+# !! trusted LAN, but there's still no authn/authz in front of the UI. Before
+# !! relying on this, add auth in front of it (e.g. an oauth2-proxy / forward-auth
+# !! HTTPRoute filter, or an ExternalAuth policy). Until then, treat this as
+# !! LAN-only and keep it commented out if you're not actively using it.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: longhorn-ui
+  namespace: longhorn-system
+spec:
+  parentRefs:
+    - name: internal
+      namespace: internal-gateway
+  hostnames:
+    - longhorn.cobbler.gordns.net
+  rules:
+    - backendRefs:
+        # Service created by the Longhorn chart in longhorn-system.
+        - name: longhorn-frontend
+          port: 80
