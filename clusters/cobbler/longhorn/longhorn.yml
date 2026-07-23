@@ -57,8 +57,11 @@ spec:
         kind: HelmRepository
         name: longhorn
   targetNamespace: longhorn-system
+  timeout: 10m0s
   install:
     createNamespace: true
+    remediation:
+      retries: 3
   values:
     persistence:
       # Do NOT make longhorn the cluster-default StorageClass yet -- leave
