@@ -13,14 +13,23 @@
 #
 # STORAGE NODE SELECTION:
 #   createDefaultDiskLabeledNodes (below) is TRUE, so Longhorn only provisions a
-#   disk on nodes explicitly labeled. Label ONLY the fat-disk nodes so it never
-#   tries to consume the 8Gi root FS on the amd64 VMs (until those are resized):
-#     kubectl label node bob.gordns.net    node.longhorn.io/create-default-disk=true
-#     kubectl label node krusty.gordns.net node.longhorn.io/create-default-disk=true
-#     kubectl label node mel.gordns.net    node.longhorn.io/create-default-disk=true
-#   (bob/krusty/mel are the ~1TB arm64 workers. Add the amd64 n0x nodes here once
-#    their VM disks are grown -> then bump defaultReplicaCount and you get 6-node,
-#    cross-arch, cross-failure-domain spread.)
+#   disk on nodes explicitly labeled:
+#     kubectl label node bob.gordns.net         node.longhorn.io/create-default-disk=true
+#     kubectl label node krusty.gordns.net      node.longhorn.io/create-default-disk=true
+#     kubectl label node mel.gordns.net         node.longhorn.io/create-default-disk=true
+#     kubectl label node cobbler-n01.gordns.net node.longhorn.io/create-default-disk=true
+#     kubectl label node cobbler-n02.gordns.net node.longhorn.io/create-default-disk=true
+#     kubectl label node cobbler-n03.gordns.net node.longhorn.io/create-default-disk=true
+#   (bob/krusty/mel: 1TB SATA SSD at /var/lib/longhorn. cobbler-n01/n02/n03:
+#    150Gi disk at /var/lib/longhorn. cp01/cp02 are intentionally excluded --
+#    they carry the control-plane NoSchedule taint and Longhorn's DaemonSets
+#    have no toleration for it, so nothing would schedule there anyway.)
+#
+#   Nodes are also labeled topology.kubernetes.io/zone (VMs share their
+#   hypervisor's name -- cobbler-n01/n02 = santas-little-helper, cobbler-n03 =
+#   willie; bare-metal nodes use their own name) so replicaZoneSoftAntiAffinity
+#   below actually has hypervisor-level failure domains to spread across,
+#   instead of just node-level.
 # ---------------------------------------------------------------------------
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
@@ -69,6 +78,11 @@ spec:
       defaultReplicaCount: 3
       # Require replicas on DIFFERENT nodes (false = hard anti-affinity).
       replicaSoftAntiAffinity: false
+      # Require replicas in DIFFERENT zones (false = hard anti-affinity).
+      # Zones are hypervisor names for VM nodes -- without this, node-level
+      # anti-affinity alone would let two replicas land on cobbler-n01 and
+      # cobbler-n02, which are both VMs on santas-little-helper.
+      replicaZoneSoftAntiAffinity: false
       # Don't let a degraded node's replicas silently pile onto survivors.
       storageOverProvisioningPercentage: 100
       # Reclaim space from deleted volumes.
