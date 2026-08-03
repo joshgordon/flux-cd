@@ -5,15 +5,17 @@
 # the role by overwriting it with matching config (safe - it's an idempotent
 # config write, doesn't touch already-issued tokens/leases).
 #
-# Only change from what was live: ttl bumped from the engine default (1h) to
-# 24h, so cert-manager isn't getting a new Cloudflare token every hour.
+# ttl bumped from the engine default (1h) to 48h, so cert-manager isn't
+# getting a new Cloudflare token every hour. Paired with the ExternalSecret's
+# 24h refreshInterval (clusters/cobbler/cert-manager/cloudflare-dns-token.yml)
+# for a 24h+ buffer before the in-use token's lease dies.
 resource "vault_generic_endpoint" "cloudflare_dns_editor_role" {
   path                 = "cloudflare/role/dns-editor"
   ignore_absent_fields = true
 
   data_json = jsonencode({
     token_type = "user"
-    ttl        = "24h"
+    ttl        = "48h"
     # The plugin's `policies` field is TypeString - a JSON-encoded array as
     # text, same as what `bao write policies='[...]'` sends from the CLI (CLI
     # args are always plain strings). A native HCL/JSON array here fails with

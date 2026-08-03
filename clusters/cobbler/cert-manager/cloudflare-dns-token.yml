@@ -35,8 +35,8 @@ spec:
 # (clusters/cobbler/cert-manager/cert-manager-issuer.yml), which expects
 # secret cloudflare-api-token-secret / key api-token in this namespace.
 #
-# The role's ttl is 24h (terraform/environments/cobbler/cloudflare.tf) -
-# refreshInterval here is 18h so there's always a 6h+ buffer before the
+# The role's ttl is 48h (terraform/environments/cobbler/cloudflare.tf) -
+# refreshInterval here is 24h so there's always a 24h+ buffer before the
 # in-use token's lease dies. Re-reading early doesn't interrupt anything:
 # each read mints a new token on a new independent lease, the old one just
 # expires on its own schedule.
@@ -46,7 +46,7 @@ metadata:
   name: cloudflare-api-token
   namespace: cert-manager
 spec:
-  refreshInterval: 1h
+  refreshInterval: 24h
   target:
     name: cloudflare-api-token-secret
     template:
