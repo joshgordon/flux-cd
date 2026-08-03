@@ -47,12 +47,20 @@ resource "vault_generic_endpoint" "cloudflare_dns_editor_role" {
 # cert-manager's Cloudflare DNS01 solver reads a token minted from the role
 # above via external-secrets (see clusters/cobbler/cert-manager/). Scoped to
 # read-only on just that one role's creds endpoint.
+#
+# token_ttl overrides the module's 300s (5m) default. Vault ties child leases
+# to their parent auth token - once this login token expired, the Cloudflare
+# credential it fetched got revoked right along with it, regardless of the
+# ttl/max_ttl configured on the cloudflare secrets engine itself. Matches the
+# cloudflare/role/dns-editor max_ttl (48h) so the auth token outlives the
+# credential it's used to fetch.
 module "cert_manager_cloudflare_vault_role" {
   source = "../../modules/vault-k8s-app-role"
 
-  app_name             = "cert-manager-cloudflare"
-  namespace            = "cert-manager"
-  service_account_name = "cloudflare-dns-token-reader"
+  app_name              = "cert-manager-cloudflare"
+  namespace             = "cert-manager"
+  service_account_name  = "cloudflare-dns-token-reader"
+  token_ttl             = 172800 # 48h
 
   policy_rules = [
     {
