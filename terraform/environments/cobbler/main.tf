@@ -20,3 +20,21 @@ module "external_secrets_vault_role" {
     },
   ]
 }
+
+# Backs the OpenBao agent injector annotations on the grafana-alloy DaemonSet
+# (see clusters/cobbler/grafana-cloud/grafana-cloud.yml) - Alloy reads its
+# Grafana Cloud remote_write/Loki credentials from files the injector writes,
+# rather than through an ExternalSecret.
+module "grafana_alloy_vault_role" {
+  source = "../../modules/vault-k8s-app-role"
+
+  app_name  = "grafana-alloy"
+  namespace = "grafana-cloud"
+
+  policy_rules = [
+    {
+      path         = "secret/data/grafana-cloud"
+      capabilities = ["read"]
+    },
+  ]
+}

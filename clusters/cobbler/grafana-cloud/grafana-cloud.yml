@@ -1,0 +1,227 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: grafana
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://grafana.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: grafana-alloy
+  namespace: flux-system
+spec:
+  chart:
+    spec:
+      chart: alloy
+      version: "1.11.0"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: flux-system
+      interval: 10m
+  install:
+    createNamespace: true
+  interval: 5m
+  storageNamespace: flux-system
+  targetNamespace: grafana-cloud
+  values:
+    # Fixes the release's resource names (including the ServiceAccount) so the
+    # OpenBao Kubernetes auth role (module.grafana_alloy_vault_role, bound to
+    # SA "grafana-alloy" in ns "grafana-cloud") matches without guesswork.
+    fullnameOverride: grafana-alloy
+
+    controller:
+      type: daemonset
+      podAnnotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "grafana-alloy-role"
+        # Populate the secret files once at pod start rather than running a
+        # long-lived renewal sidecar - these are static Grafana Cloud
+        # credentials, not leased/rotating secrets.
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/agent-inject-secret-prometheus_url: "secret/data/grafana-cloud"
+        vault.hashicorp.com/agent-inject-template-prometheus_url: |
+          {{- with secret "secret/data/grafana-cloud" -}}
+          {{- .Data.data.prometheus_url -}}
+          {{- end -}}
+        vault.hashicorp.com/agent-inject-secret-prometheus_username: "secret/data/grafana-cloud"
+        vault.hashicorp.com/agent-inject-template-prometheus_username: |
+          {{- with secret "secret/data/grafana-cloud" -}}
+          {{- .Data.data.prometheus_username -}}
+          {{- end -}}
+        vault.hashicorp.com/agent-inject-secret-loki_url: "secret/data/grafana-cloud"
+        vault.hashicorp.com/agent-inject-template-loki_url: |
+          {{- with secret "secret/data/grafana-cloud" -}}
+          {{- .Data.data.loki_url -}}
+          {{- end -}}
+        vault.hashicorp.com/agent-inject-secret-loki_username: "secret/data/grafana-cloud"
+        vault.hashicorp.com/agent-inject-template-loki_username: |
+          {{- with secret "secret/data/grafana-cloud" -}}
+          {{- .Data.data.loki_username -}}
+          {{- end -}}
+        vault.hashicorp.com/agent-inject-secret-api_token: "secret/data/grafana-cloud"
+        vault.hashicorp.com/agent-inject-template-api_token: |
+          {{- with secret "secret/data/grafana-cloud" -}}
+          {{- .Data.data.api_token -}}
+          {{- end -}}
+      volumes:
+        extra:
+          - name: rootfs
+            hostPath:
+              path: /
+          - name: procfs
+            hostPath:
+              path: /proc
+          - name: sysfs
+            hostPath:
+              path: /sys
+
+    alloy:
+      mounts:
+        extra:
+          - name: rootfs
+            mountPath: /host/root
+            readOnly: true
+          - name: procfs
+            mountPath: /host/proc
+            readOnly: true
+          - name: sysfs
+            mountPath: /host/sys
+            readOnly: true
+      configMap:
+        content: |
+          // Host-level metrics (CPU/mem/disk/network), the Alloy built-in
+          // equivalent of node_exporter.
+          prometheus.exporter.unix "node" {
+            rootfs_path = "/host/root"
+            procfs_path = "/host/proc"
+            sysfs_path  = "/host/sys"
+          }
+
+          prometheus.scrape "node" {
+            targets         = prometheus.exporter.unix.node.targets
+            scrape_interval = "60s"
+            forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+          }
+
+          // Container-level metrics straight from each node's kubelet
+          // cAdvisor endpoint, filtered down to a small set of series.
+          // Deliberately skips kube-state-metrics: on Grafana Cloud that's
+          // what triggers per-host/per-container-hour billing, and this
+          // cluster's node/container count is well over the free allotment
+          // for that pricing model. Plain series stay on the standard
+          // 10k-active-series free metrics tier instead.
+          discovery.kubernetes "nodes" {
+            role = "node"
+          }
+
+          discovery.relabel "cadvisor" {
+            targets = discovery.kubernetes.nodes.targets
+
+            rule {
+              source_labels = ["__meta_kubernetes_node_address_InternalIP"]
+              target_label  = "__address__"
+              replacement   = "${1}:10250"
+            }
+            rule {
+              target_label = "__metrics_path__"
+              replacement  = "/metrics/cadvisor"
+            }
+            rule {
+              source_labels = ["__meta_kubernetes_node_name"]
+              target_label  = "node"
+            }
+          }
+
+          prometheus.scrape "cadvisor" {
+            targets           = discovery.relabel.cadvisor.output
+            scheme            = "https"
+            bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+            scrape_interval   = "60s"
+
+            tls_config {
+              insecure_skip_verify = true
+            }
+
+            forward_to = [prometheus.relabel.cadvisor_filter.receiver]
+          }
+
+          prometheus.relabel "cadvisor_filter" {
+            forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+
+            rule {
+              source_labels = ["__name__"]
+              regex         = "container_(cpu_usage_seconds_total|memory_working_set_bytes|memory_usage_bytes|fs_usage_bytes|fs_limit_bytes|network_receive_bytes_total|network_transmit_bytes_total)"
+              action        = "keep"
+            }
+          }
+
+          // Pod logs, streamed via the Kubernetes API - no host log mounts
+          // needed.
+          discovery.kubernetes "pods" {
+            role = "pod"
+          }
+
+          discovery.relabel "pods" {
+            targets = discovery.kubernetes.pods.targets
+
+            rule {
+              target_label = "cluster"
+              replacement  = "cobbler"
+            }
+          }
+
+          loki.source.kubernetes "pods" {
+            targets    = discovery.relabel.pods.output
+            forward_to = [loki.write.grafana_cloud.receiver]
+          }
+
+          // Grafana Cloud credentials, written into the pod as files by the
+          // OpenBao agent injector (see controller.podAnnotations above)
+          // rather than through an ExternalSecret.
+          local.file "prometheus_url" {
+            filename = "/vault/secrets/prometheus_url"
+          }
+          local.file "prometheus_username" {
+            filename = "/vault/secrets/prometheus_username"
+          }
+          local.file "loki_url" {
+            filename = "/vault/secrets/loki_url"
+          }
+          local.file "loki_username" {
+            filename = "/vault/secrets/loki_username"
+          }
+          local.file "api_token" {
+            filename  = "/vault/secrets/api_token"
+            is_secret = true
+          }
+
+          prometheus.remote_write "grafana_cloud" {
+            external_labels = {
+              cluster = "cobbler",
+            }
+
+            endpoint {
+              url = local.file.prometheus_url.content
+
+              basic_auth {
+                username = local.file.prometheus_username.content
+                password = local.file.api_token.content
+              }
+            }
+          }
+
+          loki.write "grafana_cloud" {
+            endpoint {
+              url = local.file.loki_url.content
+
+              basic_auth {
+                username = local.file.loki_username.content
+                password = local.file.api_token.content
+              }
+            }
+          }
