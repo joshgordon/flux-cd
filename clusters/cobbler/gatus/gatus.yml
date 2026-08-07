@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gatus
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: gatus-storage
+  namespace: gatus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: longhorn
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gatus
+  name: gatus
+  namespace: gatus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gatus
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: gatus
+    spec:
+      volumes:
+        - name: config
+          configMap:
+            name: gatus-config
+        - name: persistent
+          persistentVolumeClaim:
+            claimName: gatus-storage
+      containers:
+        - image: ghcr.io/twin/gatus:v5.36.0
+          name: gatus
+          resources: {}
+          envFrom:
+            - secretRef:
+                name: gatus-secret
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: persistent
+              mountPath: /data
+              readOnly: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: gatus
+  name: gatus
+  namespace: gatus
+spec:
+  ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: gatus
+  type: ClusterIP
+status:
+  loadBalancer: {}
