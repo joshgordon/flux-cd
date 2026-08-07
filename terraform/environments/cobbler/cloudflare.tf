@@ -36,7 +36,8 @@ resource "vault_generic_endpoint" "cloudflare_dns_editor_role" {
         ],
         "resources": {
           "com.cloudflare.api.account.zone.2ee0444a5f89c9c46f48f65264e4ada8": "*",
-          "com.cloudflare.api.account.zone.cb86beacfcc5f893c6c6ab59458540de": "*"
+          "com.cloudflare.api.account.zone.cb86beacfcc5f893c6c6ab59458540de": "*",
+          "com.cloudflare.api.account.zone.de8c36388f0fedc042f8ec672b941425": "*"
         }
       }
     ]
