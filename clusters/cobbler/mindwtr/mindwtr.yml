@@ -36,7 +36,7 @@ spec:
         app: mindwtr
     spec:
       containers:
-      - image: ghcr.io/dongdongbh/mindwtr-cloud:latest
+      - image: ghcr.io/dongdongbh/mindwtr-cloud:1.1.6
         name: mindwtr-cloud
         envFrom:
           - secretRef:
