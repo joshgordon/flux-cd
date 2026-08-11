@@ -6,12 +6,12 @@ metadata:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mindwtr-data
+  name: mindwtr-data-longhorn
   namespace: mindwtr
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: local-path
+  storageClassName: longhorn
   resources:
     requests:
       storage: 5Gi
@@ -47,7 +47,7 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: mindwtr-data
+            claimName: mindwtr-data-longhorn
 ---
 apiVersion: v1
 kind: Service
