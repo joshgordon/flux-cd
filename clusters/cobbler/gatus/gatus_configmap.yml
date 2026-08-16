@@ -8,7 +8,7 @@ data:
     alerting:
       slack:
         webhook-url: ${SLACK_WEBHOOK_URL}
-        title: "[STAGING] :helmet_with_white_cross: Gatus"
+        title: ":helmet_with_white_cross: Gatus"
         default-alert:
           failure-threshold: 3
           success-threshold: 2
