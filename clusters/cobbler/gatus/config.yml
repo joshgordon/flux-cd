@@ -61,6 +61,8 @@ endpoints:
 
   - name: al-dns1
     group: DNS Servers
+    ui:
+      hide-hostname: true
     url: "10.3.64.2"
     interval: 60s
     dns:
@@ -79,6 +81,8 @@ endpoints:
 
   - name: al-dns2
     group: DNS Servers
+    ui:
+      hide-hostname: true
     url: "10.3.64.4"
     interval: 60s
     dns:
@@ -92,6 +96,8 @@ endpoints:
 
   - name: md-dns1
     group: DNS Servers
+    ui:
+      hide-hostname: true
     url: "10.3.12.76"
     interval: 60s
     dns:
@@ -104,6 +110,8 @@ endpoints:
 
   - name: md-dns2
     group: DNS Servers
+    ui:
+      hide-hostname: true
     url: "10.3.12.217"
     interval: 60s
     dns:
@@ -120,6 +128,8 @@ endpoints:
 
   - name: authentik
     group: Docker Services
+    ui:
+      hide-hostname: true
     url: "http://auth.joshgordon.app"
     interval: 60s
     conditions:
@@ -129,6 +139,8 @@ endpoints:
 
   - name: MeshCentral
     group: Docker Services
+    ui:
+      hide-hostname: true
     url: ${MESHCENTRAL_URL}
     interval: 60s
     conditions:
@@ -138,6 +150,8 @@ endpoints:
 
   - name: immich
     group: Docker Services
+    ui:
+      hide-hostname: true
     url: "http://immich.bluesmoke.network:2283"
     interval: 60s
     conditions:
@@ -151,6 +165,8 @@ endpoints:
 
   - name: plex
     group: Docker Services
+    ui:
+      hide-hostname: true
     url: "http://plex.bluesmoke.network:32400/identity"
     interval: 60s
     conditions:
@@ -160,6 +176,8 @@ endpoints:
 
   - name: paperless
     group: Docker Services
+    ui:
+      hide-hostname: true
     url: ${PAPERLESS_URL}
     interval: 60s
     conditions:
@@ -169,6 +187,8 @@ endpoints:
 
   - name: outline
     group: Docker Services
+    ui:
+      hide-hostname: true
     url: "http://outline.joshgordon.app"
     interval: 60s
     conditions:
@@ -178,6 +198,8 @@ endpoints:
 
   - name: miniflux
     group: Docker Services
+    ui:
+      hide-hostname: true
     url: "http://rss.joshgordon.app"
     interval: 60s
     conditions:
@@ -191,6 +213,8 @@ endpoints:
 
   - name: SPEP Audio Stream
     group: SPEP
+    ui:
+      hide-hostname: true
     url: "https://audiostream.spepchurch.org:8443/"
     interval: 60s
     conditions:
@@ -202,6 +226,8 @@ endpoints:
 
   - name: SPEP Blueiris
     group: SPEP
+    ui:
+      hide-hostname: true
     url: "http://10.114.254.200:81/"
     interval: 60s
     conditions:
@@ -215,6 +241,8 @@ endpoints:
   ##############################################################################
   - name: joshgordon.app - Certificate
     group: TLS Certs
+    ui:
+      hide-hostname: true
     method: HEAD
     interval: 5m
     url: tls://auth.joshgordon.app:443
@@ -230,6 +258,8 @@ endpoints:
 
   - name: cobbler-cp01
     group: eobbler
+    ui:
+      hide-hostname: true
     url: "icmp://cobbler-cp01.gordns.net"
     interval: 60s
     conditions:
@@ -240,6 +270,8 @@ endpoints:
 
   - name: cobbler-cp02
     group: Cobbler
+    ui:
+      hide-hostname: true
     url: "icmp://cobbler-cp02.gordns.net"
     interval: 60s
     conditions:
@@ -250,6 +282,8 @@ endpoints:
 
   - name: cobbler-n01
     group: Cobbler
+    ui:
+      hide-hostname: true
     url: "icmp://cobbler-n01.gordns.net"
     interval: 60s
     conditions:
@@ -260,6 +294,8 @@ endpoints:
 
   - name: cobbler-n02
     group: Cobbler
+    ui:
+      hide-hostname: true
     url: "icmp://cobbler-n02.gordns.net"
     interval: 60s
     conditions:
@@ -270,6 +306,8 @@ endpoints:
 
   - name: cobbler-n03
     group: Cobbler
+    ui:
+      hide-hostname: true
     url: "icmp://cobbler-n03.gordns.net"
     interval: 60s
     conditions:
@@ -280,6 +318,8 @@ endpoints:
 
   - name: cobbler-bob
     group: Cobbler
+    ui:
+      hide-hostname: true
     url: "icmp://bob.gordns.net"
     interval: 60s
     conditions:
@@ -290,6 +330,8 @@ endpoints:
 
   - name: cobbler-mel
     group: Cobbler
+    ui:
+      hide-hostname: true
     url: "icmp://mel.gordns.net"
     interval: 60s
     conditions:
@@ -300,6 +342,8 @@ endpoints:
 
   - name: cobbler-krusty
     group: Cobbler
+    ui:
+      hide-hostname: true
     url: "icmp://krusty.gordns.net"
     interval: 60s
     conditions:
@@ -310,6 +354,8 @@ endpoints:
 
   - name: cobbler-teeny
     group: Cobbler
+    ui:
+      hide-hostname: true
     url: "icmp://teeny.gordns.net"
     interval: 60s
     conditions:

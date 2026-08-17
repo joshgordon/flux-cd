@@ -4,7 +4,6 @@ kind: Kustomization
 resources:
   - gatus.yml
   - gatus-route.yml
-  - gatus-secrets.yml
 
 configMapGenerator:
   - name: gatus-config
