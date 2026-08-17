@@ -1,0 +1,319 @@
+alerting:
+  slack:
+    webhook-url: ${SLACK_WEBHOOK_URL}
+    title: ":helmet_with_white_cross: Gatus"
+    default-alert:
+      failure-threshold: 3
+      success-threshold: 2
+      send-on-resolved: true
+
+metrics: true
+
+security:
+  oidc:
+    issuer-url: "https://auth.joshgordon.app/application/o/gatus/"
+    redirect-url: "https://status.joshgordon.app/authorization-code/callback"
+    client-id: ${OAUTH_CLIENT_ID}
+    client-secret: ${OAUTH_CLIENT_SECRET}
+    scopes: ["openid"]
+    session-ttl: 2160h #90d
+
+storage:
+  type: sqlite
+  path: /data/gatus.sqlite
+
+ui:
+  default-sort-by: group
+
+external-endpoints:
+  - name: off-site-backups
+    group: backups
+    token: ${OFF_SITE_BACKUP_TOKEN}
+    heartbeat:
+      interval: 26h # Automatically create a failure if no update is received within 30 minutes
+    alerts:
+      - type: slack
+        failure-threshold: 1
+        success-threshold: 1
+  - name: local-backups
+    group: backups
+    token: ${LOCAL_BACKUP_TOKEN}
+    heartbeat:
+      interval: 26h # Automatically create a failure if no update is received within 30 minutes
+    alerts:
+      - type: slack
+        failure-threshold: 1
+        success-threshold: 1
+  - name: Generator Excercise
+    group: home
+    token: ${HOME_ASSISTANT_TOKEN}
+    heartbeat:
+      interval: 170h # 7x24h days + 2h
+    alerts:
+      - type: slack
+        failure-threshold: 1
+        success-threshold: 1
+
+endpoints:
+  ##############################################################################
+  # DNS Servers
+  ##############################################################################
+
+  - name: al-dns1
+    group: DNS Servers
+    url: "10.3.64.2"
+    interval: 60s
+    dns:
+      query-name: "google.com"
+      query-type: "A"
+    conditions:
+      - "[DNS_RCODE] == NOERROR"
+    alerts:
+      - type: slack
+    maintenance-windows: &crosswinds-reboot
+      - start: "03:15"
+        duration: 30m
+        timezone: "America/Chicago"
+        every:
+          - Sunday
+
+  - name: al-dns2
+    group: DNS Servers
+    url: "10.3.64.4"
+    interval: 60s
+    dns:
+      query-name: "google.com"
+      query-type: "A"
+    conditions:
+      - "[DNS_RCODE] == NOERROR"
+    alerts:
+      - type: slack
+    maintenance-windows: *crosswinds-reboot
+
+  - name: md-dns1
+    group: DNS Servers
+    url: "10.3.12.76"
+    interval: 60s
+    dns:
+      query-name: "google.com"
+      query-type: "A"
+    conditions:
+      - "[DNS_RCODE] == NOERROR"
+    alerts:
+      - type: slack
+
+  - name: md-dns2
+    group: DNS Servers
+    url: "10.3.12.217"
+    interval: 60s
+    dns:
+      query-name: "google.com"
+      query-type: "A"
+    conditions:
+      - "[DNS_RCODE] == NOERROR"
+    alerts:
+      - type: slack
+
+  ##############################################################################
+  # Docker Services
+  ##############################################################################
+
+  - name: authentik
+    group: Docker Services
+    url: "http://auth.joshgordon.app"
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: slack
+
+  - name: MeshCentral
+    group: Docker Services
+    url: ${MESHCENTRAL_URL}
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: slack
+
+  - name: immich
+    group: Docker Services
+    url: "http://immich.bluesmoke.network:2283"
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: slack
+    maintenance-windows:
+      - start: "08:30"
+        duration: 30m
+        timezone: "UTC"
+
+  - name: plex
+    group: Docker Services
+    url: "http://plex.bluesmoke.network:32400/identity"
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: slack
+
+  - name: paperless
+    group: Docker Services
+    url: ${PAPERLESS_URL}
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: slack
+
+  - name: outline
+    group: Docker Services
+    url: "http://outline.joshgordon.app"
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: slack
+
+  - name: miniflux
+    group: Docker Services
+    url: "http://rss.joshgordon.app"
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: slack
+
+  ##############################################################################
+  # SPEP - HTTP
+  ##############################################################################
+
+  - name: SPEP Audio Stream
+    group: SPEP
+    url: "https://audiostream.spepchurch.org:8443/"
+    interval: 60s
+    conditions:
+      - "[STATUS] == 200"
+      - "[CERTIFICATE_EXPIRATION] > 168h" # warn if TLS cert expires within 7 days
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  - name: SPEP Blueiris
+    group: SPEP
+    url: "http://10.114.254.200:81/"
+    interval: 60s
+    conditions:
+      - "[STATUS] == 401"
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  ##############################################################################
+  # joshgordon domains
+  ##############################################################################
+  - name: joshgordon.app - Certificate
+    group: TLS Certs
+    method: HEAD
+    interval: 5m
+    url: tls://auth.joshgordon.app:443
+    conditions:
+      - "[CERTIFICATE_EXPIRATION] > 168h"
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  ##############################################################################
+  # cobbler pi cluster
+  ##############################################################################
+
+  - name: cobbler-cp01
+    group: eobbler
+    url: "icmp://cobbler-cp01.gordns.net"
+    interval: 60s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  - name: cobbler-cp02
+    group: Cobbler
+    url: "icmp://cobbler-cp02.gordns.net"
+    interval: 60s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  - name: cobbler-n01
+    group: Cobbler
+    url: "icmp://cobbler-n01.gordns.net"
+    interval: 60s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  - name: cobbler-n02
+    group: Cobbler
+    url: "icmp://cobbler-n02.gordns.net"
+    interval: 60s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  - name: cobbler-n03
+    group: Cobbler
+    url: "icmp://cobbler-n03.gordns.net"
+    interval: 60s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  - name: cobbler-bob
+    group: Cobbler
+    url: "icmp://bob.gordns.net"
+    interval: 60s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  - name: cobbler-mel
+    group: Cobbler
+    url: "icmp://mel.gordns.net"
+    interval: 60s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  - name: cobbler-krusty
+    group: Cobbler
+    url: "icmp://krusty.gordns.net"
+    interval: 60s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: slack
+        failure-threshold: 2
+
+  - name: cobbler-teeny
+    group: Cobbler
+    url: "icmp://teeny.gordns.net"
+    interval: 60s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: slack
+        failure-threshold: 2
