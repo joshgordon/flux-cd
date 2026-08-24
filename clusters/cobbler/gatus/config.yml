@@ -257,7 +257,7 @@ endpoints:
   ##############################################################################
 
   - name: cobbler-cp01
-    group: cobbler
+    group: Cobbler
     ui:
       hide-hostname: true
     url: "icmp://cobbler-cp01.gordns.net"
