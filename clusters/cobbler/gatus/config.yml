@@ -9,14 +9,14 @@ alerting:
 
 metrics: true
 
-security:
-  oidc:
-    issuer-url: "https://auth.joshgordon.app/application/o/gatus/"
-    redirect-url: "https://status.joshgordon.app/authorization-code/callback"
-    client-id: ${OAUTH_CLIENT_ID}
-    client-secret: ${OAUTH_CLIENT_SECRET}
-    scopes: ["openid"]
-    session-ttl: 2160h #90d
+# security:
+#   oidc:
+#     issuer-url: "https://auth.joshgordon.app/application/o/gatus/"
+#     redirect-url: "https://status.joshgordon.app/authorization-code/callback"
+#     client-id: ${OAUTH_CLIENT_ID}
+#     client-secret: ${OAUTH_CLIENT_SECRET}
+#     scopes: ["openid"]
+#     session-ttl: 2160h #90d
 
 storage:
   type: sqlite
