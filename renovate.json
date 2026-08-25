@@ -11,6 +11,9 @@
   "kubernetes": {
     "managerFilePatterns": [
       "/^clusters/.+\\.ya?ml$/"
+    ],
+    "ignorePaths": [
+      "clusters/cobbler/flux-system/**"
     ]
   }
 }
