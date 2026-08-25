@@ -6,7 +6,6 @@
   "flux": {
     "fileMatch": ["clusters/.+\\.ya?ml$"]
   },
-  {
   "kubernetes": {
     "managerFilePatterns": [
       "/^clusters/.+\\.ya?ml$/"
