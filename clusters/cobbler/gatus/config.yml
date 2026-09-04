@@ -251,6 +251,19 @@ endpoints:
     alerts:
       - type: slack
         failure-threshold: 2
+  - name: Vault
+    group: TLS Certs
+    ui:
+      hide-hostname: true
+    method: HEAD
+    interval: 5m
+    url: https://vault.cobbler.gordns.net/ui/
+    conditions:
+      - "[CERTIFICATE_EXPIRATION] > 24h"
+      - "[STATUS] == 200"
+    alerts:
+      - type: slack
+        failure-threshold: 2
 
   ##############################################################################
   # cobbler pi cluster
