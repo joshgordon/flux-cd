@@ -1,0 +1,79 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: postgres
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: r2-credentials
+  namespace: postgres
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: r2-credentials # the k8s Secret it creates
+  data:
+    - secretKey: ACCESS_KEY_ID
+      remoteRef:
+        key: external-secrets/cnpg/cloudflare-r2-backup
+        property: access_key_id
+    - secretKey: ACCESS_SECRET_KEY
+      remoteRef:
+        key: external-secrets/cnpg/cloudflare-r2-backup
+        property: secret_access_key
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: r2
+  namespace: postgres
+spec:
+  configuration:
+    destinationPath: s3://cobbler-cnpg-backups
+    endpointURL: https://9b30b08543baae9d7fd3b5739a8e10d2.r2.cloudflarestorage.com
+    s3Credentials:
+      accessKeyId:
+        name: r2-credentials
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: r2-credentials
+        key: ACCESS_SECRET_KEY
+  retentionPolicy: "14d"
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: shared
+  namespace: postgres
+spec:
+  instances: 3
+  storage:
+    storageClass: local-path
+    size: 15Gi
+  affinity:
+    topologyKey: failure-domain.gordns.net
+    podAntiAffinityType: required
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: r2
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: shared-daily
+  namespace: postgres
+spec:
+  cluster:
+    name: shared
+  schedule: "0 0 3 * * *" # sec min hour dom mon dow -> 03:00 daily
+  immediate: true # also take one right now
+  backupOwnerReference: self
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

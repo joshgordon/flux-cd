@@ -1,0 +1,26 @@
+# # Use this to restore databse onto a new cluster. Needs the object store and some of that set up, but a good
+# # place to start
+# ---
+# apiVersion: postgresql.cnpg.io/v1
+# kind: Cluster
+# metadata:
+#   name: shared-restore
+#   namespace: postgres
+# spec:
+#   instances: 1
+#   storage:
+#     storageClass: local-path
+#     size: 15Gi
+#   affinity:
+#     topologyKey: failure-domain.gordns.net
+#     podAntiAffinityType: required
+#   bootstrap:
+#     recovery:
+#       source: origin
+#   externalClusters:
+#     - name: origin
+#       plugin:
+#         name: barman-cloud.cloudnative-pg.io
+#         parameters:
+#           barmanObjectName: r2 # your ObjectStore
+#           serverName: shared # the ORIGINAL cluster's name = its folder in the bucket
