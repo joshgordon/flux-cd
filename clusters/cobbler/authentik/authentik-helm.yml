@@ -54,18 +54,8 @@ spec:
     postgresql:
       enabled: false
 
-    server:
+    global:
       replicas: 1
-      volumes:
-        - name: media
-          persistentVolumeClaim:
-            claimName: authentik-media
-      volumeMounts:
-        - name: media
-          mountPath: /data
-      ingress:
-        enabled: false
-    worker:
       volumes:
         - name: media
           persistentVolumeClaim:
