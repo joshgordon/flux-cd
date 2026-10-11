@@ -67,8 +67,11 @@ spec:
         enabled: false
     worker:
       volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: authentik-media
         - name: ldap-joshgordon-net
-          secretRef:
+          secret:
             secretName: ldap-tls-cert
             items:
               - key: tls.cert
