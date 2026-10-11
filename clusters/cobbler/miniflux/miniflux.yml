@@ -1,0 +1,191 @@
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: miniflux-db-creds
+  namespace: postgres
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: miniflux-db-creds
+    template:
+      type: kubernetes.io/basic-auth
+  data:
+    - secretKey: username
+      remoteRef:
+        key: external-secrets/db/miniflux
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: external-secrets/db/miniflux
+        property: password
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: shared-miniflux
+  namespace: postgres
+spec:
+  cluster:
+    name: shared
+  name: miniflux
+  ensure: present
+  login: true
+  passwordSecret:
+    name: miniflux-db-creds
+  databaseRoleReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: shared-miniflux
+  namespace: postgres
+spec:
+  cluster:
+    name: shared
+  name: miniflux
+  owner: miniflux
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: miniflux
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: miniflux-db
+  namespace: miniflux
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: miniflux-db
+    template:
+      data:
+        DATABASE_URL: "postgres://{{ .username }}:{{ .password }}@shared-rw.postgres.svc.cluster.local/miniflux?sslmode=require"
+  data:
+    - secretKey: username
+      remoteRef:
+        key: external-secrets/db/miniflux
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: external-secrets/db/miniflux
+        property: password
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: miniflux-environment
+  namespace: miniflux
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: miniflux-env
+  dataFrom:
+    - extract:
+        key: external-secrets/miniflux/environment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: miniflux
+  name: miniflux
+  namespace: miniflux
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: miniflux
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: miniflux
+    spec:
+      initContainers:
+        - image: ghcr.io/miniflux/miniflux:2.3.3-distroless
+          name: miniflux-db-migrate
+          args:
+            - miniflux
+            - "-migrate"
+          envFrom:
+            - secretRef:
+                name: miniflux-db
+      containers:
+        - image: ghcr.io/miniflux/miniflux:2.3.3-distroless
+          name: miniflux
+          envFrom:
+            - secretRef:
+                name: miniflux-env
+            - secretRef:
+                name: miniflux-db
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthcheck
+              port: 8080
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+          startupProbe:
+            failureThreshold: 30
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: miniflux
+  name: miniflux-http
+spec:
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: http
+  selector:
+    app: miniflux
+status:
+  loadBalancer: {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: miniflux-ui
+  namespace: miniflux
+spec:
+  parentRefs:
+    - name: external
+      namespace: external-gateway
+  hostnames:
+    - rss.joshgordon.app
+  rules:
+    - backendRefs:
+        # Service created by the Longhorn chart in longhorn-system.
+        - name: miniflux-http
+          port: 80
