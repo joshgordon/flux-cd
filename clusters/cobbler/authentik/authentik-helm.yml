@@ -39,10 +39,6 @@ spec:
   values:
     serviceAccount:
       fullnameOverride: authentik-server-sa
-    global:
-      envFrom:
-        - secretRef:
-            name: authentik-env
 
     authentik:
       postgresql:
@@ -55,7 +51,9 @@ spec:
       enabled: false
 
     global:
-      replicas: 1
+      envFrom:
+        - secretRef:
+            name: authentik-env
       volumes:
         - name: media
           persistentVolumeClaim:
