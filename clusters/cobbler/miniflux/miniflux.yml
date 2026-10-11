@@ -163,6 +163,7 @@ metadata:
   labels:
     app: miniflux
   name: miniflux-http
+  namespace: miniflux
 spec:
   ports:
     - port: 80
