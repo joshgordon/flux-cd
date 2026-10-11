@@ -6,11 +6,11 @@ metadata:
 spec:
   # Secret names are always required.
   secretName: ldap-tls-cert
-  commonName: ldap.joshgordon.net
+    # commonName: ldap.joshgordon.net
 
   # At least one of commonName (possibly through literalSubject), dnsNames, uris, emailAddresses, ipAddresses or otherNames is required.
-  # dnsNames:
-  #   - ldap.joshgordon.net
+  dnsNames:
+    - ldap.joshgordon.net
 
   # Issuer references are always required.
   issuerRef:
