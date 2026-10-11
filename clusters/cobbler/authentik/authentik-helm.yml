@@ -64,7 +64,7 @@ spec:
           secret:
             secretName: ldap-tls-cert
             items:
-              - key: tls.cert
+              - key: tls.crt
                 path: fullchain.pem
               - key: tls.key
                 path: privkey.pem
