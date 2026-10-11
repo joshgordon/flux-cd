@@ -1,0 +1,17 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: authentik
+  namespace: authentik
+spec:
+  parentRefs:
+    - name: external
+      namespace: external-gateway
+  hostnames:
+    - auth.joshgordon.app
+  rules:
+    - backendRefs:
+        # Service created by the Longhorn chart in longhorn-system.
+        - name: authentik-authentik-server
+          port: 80

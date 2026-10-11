@@ -1,0 +1,26 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: authentik-authentik
+  namespace: authentik
+spec:
+  cluster:
+    name: authentik
+  name: authentik
+  ensure: present
+  login: true
+  passwordSecret:
+    name: authentik-db-role
+  databaseRoleReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: authentik
+  namespace: authentik
+spec:
+  cluster:
+    name: authentik
+  name: authentik
+  owner: authentik
