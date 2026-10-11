@@ -65,3 +65,19 @@ spec:
           mountPath: /data
       ingress:
         enabled: false
+    worker:
+      volumes:
+        - name: ldap-joshgordon-net
+          secretRef:
+            secretName: ldap-tls-cert
+            items:
+              - key: tls.cert
+                path: fullchain.pem
+              - key: tls.key
+                path: privkey.pem
+      volumeMounts:
+        - name: media
+          mountPath: /data
+        - name: ldap-joshgordon-net
+          mountPath: /certs/ldap.joshgordon.net
+          readOnly: true
