@@ -3,20 +3,6 @@ kind: Namespace
 metadata:
   name: gatus
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: gatus-storage
-  namespace: gatus
-spec:
-  accessModes:
-    - ReadWriteOnce
-  volumeMode: Filesystem
-  resources:
-    requests:
-      storage: 1Gi
-  storageClassName: longhorn
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -40,9 +26,6 @@ spec:
         - name: config
           configMap:
             name: gatus-config
-        - name: persistent
-          persistentVolumeClaim:
-            claimName: gatus-storage
       containers:
         - image: ghcr.io/twin/gatus:v5.37.0
           name: gatus
@@ -56,9 +39,6 @@ spec:
             - name: config
               mountPath: /config
               readOnly: true
-            - name: persistent
-              mountPath: /data
-              readOnly: false
 ---
 apiVersion: v1
 kind: Service
