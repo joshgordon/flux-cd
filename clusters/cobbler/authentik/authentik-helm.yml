@@ -60,7 +60,7 @@ spec:
             claimName: authentik-media
         - name: ldap-legacy-joshgordon-net
           secret:
-            secretName: ldap--legacy-tls-cert
+            secretName: ldap-legacy-tls-cert
             items:
               - key: tls.crt
                 path: fullchain.pem
