@@ -19,8 +19,8 @@ metrics: true
 #     session-ttl: 2160h #90d
 
 storage:
-  type: sqlite
-  path: /data/gatus.sqlite
+  type: postgres
+  path: ${DATABASE_URL}
 
 ui:
   default-sort-by: group

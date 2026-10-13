@@ -50,6 +50,8 @@ spec:
           envFrom:
             - secretRef:
                 name: gatus-secret
+            - secretRef:
+                name: gatus-db
           volumeMounts:
             - name: config
               mountPath: /config
