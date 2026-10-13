@@ -126,8 +126,8 @@ endpoints:
   # Docker Services
   ##############################################################################
 
-  - name: authentik
-    group: Docker Services
+  - name: Authentik
+    group: K8s Services
     ui:
       hide-hostname: true
     url: "http://auth.joshgordon.app"
@@ -136,6 +136,17 @@ endpoints:
       - "[STATUS] == 200"
     alerts:
       - type: slack
+
+  - name: Authentik LDAP
+    group: K8s Services
+    ui:
+      hide-hostname: true
+    url: "tls://ldap.joshgordon.net:636"
+    conditions:
+      - "[CERTIFICATE_EXPIRATION] > 168h"
+    alerts:
+      - type: slack
+        failure-threshold: 2
 
   - name: MeshCentral
     group: Docker Services
@@ -197,7 +208,7 @@ endpoints:
       - type: slack
 
   - name: miniflux
-    group: Docker Services
+    group: K8s Services
     ui:
       hide-hostname: true
     url: "http://rss.joshgordon.app"
