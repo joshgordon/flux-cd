@@ -144,6 +144,7 @@ endpoints:
     url: "tls://ldap.joshgordon.net:636"
     conditions:
       - "[CERTIFICATE_EXPIRATION] > 36h"
+      - "[CONNECTED] == true"
     alerts:
       - type: slack
         failure-threshold: 2
