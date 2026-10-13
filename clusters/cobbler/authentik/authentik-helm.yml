@@ -58,14 +58,6 @@ spec:
         - name: media
           persistentVolumeClaim:
             claimName: authentik-media
-        - name: ldap-legacy-joshgordon-net
-          secret:
-            secretName: ldap-legacy-tls-cert
-            items:
-              - key: tls.crt
-                path: fullchain.pem
-              - key: tls.key
-                path: privkey.pem
         - name: ldap-joshgordon-net
           secret:
             secretName: ldap-tls-cert
@@ -79,7 +71,4 @@ spec:
           mountPath: /data
         - name: ldap-joshgordon-net
           mountPath: /certs/ldap.joshgordon.net
-          readOnly: true
-        - name: ldap-legacy-joshgordon-net
-          mountPath: /certs/ldap-legacy.joshgordon.net
           readOnly: true

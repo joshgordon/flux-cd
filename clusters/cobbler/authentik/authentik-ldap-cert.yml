@@ -11,24 +11,6 @@ spec:
   # At least one of commonName (possibly through literalSubject), dnsNames, uris, emailAddresses, ipAddresses or otherNames is required.
   dnsNames:
     - ldap.joshgordon.net
-
-  # Issuer references are always required.
-  issuerRef:
-    name: letsencrypt-issuer
-    kind: ClusterIssuer
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: ldap-legacy.joshgordon.net
-  namespace: authentik
-spec:
-  # Secret names are always required.
-  secretName: ldap-legacy-tls-cert
-    # commonName: ldap.joshgordon.net
-
-  # At least one of commonName (possibly through literalSubject), dnsNames, uris, emailAddresses, ipAddresses or otherNames is required.
-  dnsNames:
     - ldap-legacy.joshgordon.net
 
   # Issuer references are always required.
