@@ -1,0 +1,75 @@
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: gatus-db-creds
+  namespace: postgres
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: gatus-db-creds
+    template:
+      type: kubernetes.io/basic-auth
+  data:
+    - secretKey: username
+      remoteRef:
+        key: external-secrets/db/gatus
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: external-secrets/db/gatus
+        property: password
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: shared-gatus
+  namespace: postgres
+spec:
+  cluster:
+    name: shared
+  name: gatus
+  ensure: present
+  login: true
+  passwordSecret:
+    name: gatus-db-creds
+  databaseRoleReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: shared-gatus
+  namespace: postgres
+spec:
+  cluster:
+    name: shared
+  name: gatus
+  owner: gatus
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: gatus-db
+  namespace: gatus
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: gatus-db
+    template:
+      data:
+        DATABASE_URL: "postgres://{{ .username }}:{{ .password }}@shared-rw.postgres.svc.cluster.local/gatus?sslmode=require"
+  data:
+    - secretKey: username
+      remoteRef:
+        key: external-secrets/db/gatus
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: external-secrets/db/gatus
+        property: password
