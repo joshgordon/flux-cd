@@ -1,6 +1,41 @@
+apiVersion: cilium.io/v2alpha1
+kind: CiliumGatewayClassConfig
+metadata:
+  name: cilium
+  namespace: kube-system
+spec:
+  telemetry:
+    accessLogs:
+      - format: JSON
+        json:
+          ":authority": "%REQUEST_HEADER(:AUTHORITY)%"
+          bytes_received: "%BYTES_RECEIVED%"
+          bytes_sent: "%BYTES_SENT%"
+          downstream_local_address: "%DOWNSTREAM_LOCAL_ADDRESS%"
+          downstream_remote_address: "%DOWNSTREAM_REMOTE_ADDRESS%"
+          duration: "%DURATION%"
+          gateway: "%CILIUM_GATEWAY_NAMESPACE%/%CILIUM_GATEWAY_NAME%"
+          method: "%REQUEST_HEADER(:METHOD)%"
+          protocol: "%PROTOCOL%"
+          response_code: "%RESPONSE_CODE%"
+          response_flags: "%RESPONSE_FLAGS%"
+          route_name: "%ROUTE_NAME%"
+          start_time: "%START_TIME%"
+          upstream_host: "%UPSTREAM_HOST%"
+          user-agent: "%REQUEST_HEADER(USER-AGENT)%"
+          x-envoy-origin-path: "%REQUEST_HEADER(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+          x-forwarded-for: "%REQUEST_HEADER(X-FORWARDED-FOR)%"
+          x-request-id: "%REQUEST_HEADER(X-REQUEST-ID)%"
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: cilium
 spec:
   controllerName: io.cilium/gateway-controller
+  description: The default Cilium GatewayClass
+  parametersRef:
+    group: cilium.io
+    kind: CiliumGatewayClassConfig
+    name: cilium
+    namespace: kube-system
