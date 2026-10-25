@@ -16,6 +16,28 @@ spec:
     labels:
       expose: "true"
   listeners:
+    - name: bluesmoke.network
+      port: 443
+      protocol: HTTPS
+      hostname: "bluesmoke.network"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: bluesmoke-wildcard
+    - name: star-bluesmoke.network
+      port: 443
+      protocol: HTTPS
+      hostname: "*.bluesmoke.network"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: bluesmoke-wildcard
     - name: star-joshgordon-app
       port: 443
       protocol: HTTPS

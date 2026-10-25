@@ -62,6 +62,8 @@ spec:
     - joshgordon.net
     - "*.beef.cafe"
     - beef.cafe
+    - "*.bluesmoke.network"
+    - bluesmoke.network
   rules:
     - backendRefs:
         - name: nginx
