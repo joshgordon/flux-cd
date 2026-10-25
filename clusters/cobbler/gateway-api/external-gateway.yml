@@ -3,25 +3,6 @@ kind: Namespace
 metadata:
   name: external-gateway
 ---
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: star.joshgordon.app
-  namespace: external-gateway
-spec:
-  # Secret names are always required.
-  secretName: joshgordon-wildcard
-  commonName: "*.joshgordon.app"
-
-  # At least one of commonName (possibly through literalSubject), dnsNames, uris, emailAddresses, ipAddresses or otherNames is required.
-  dnsNames:
-    - "*.joshgordon.app"
-
-  # Issuer references are always required.
-  issuerRef:
-    name: letsencrypt-issuer
-    kind: ClusterIssuer
----
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -32,8 +13,10 @@ spec:
   infrastructure:
     labels:
       expose: "true"
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-issuer
   listeners:
-    - name: https
+    - name: joshgordon-app
       port: 443
       protocol: HTTPS
       hostname: "*.joshgordon.app"
@@ -44,13 +27,66 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: joshgordon-wildcard
+    - name: joshgordon-net
+      port: 443
+      protocol: HTTPS
+      hostname: "*.joshgordon.net"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: joshgordon-net-wildcard
+    - name: jmg-app
+      port: 443
+      protocol: HTTPS
+      hostname: "*.jmg.app"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: jmgapp-wildcard
+    - name: jmg-dev
+      port: 443
+      protocol: HTTPS
+      hostname: "*.jmg.dev"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: jmgdev-wildcard
+    - name: beef-cafe
+      port: 443
+      protocol: HTTPS
+      hostname: "*.beef.cafe"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: beefcafe-wildcard
+    - name: face-feed-beef-cafe
+      port: 443
+      protocol: HTTPS
+      hostname: "face.feed.beef.cafe"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: facefeedbeefcafe-wildcard
     - name: http
       port: 80
-      protocol: HTTP
-      hostname: "*.joshgordon.app"
-#    allowedRoutes:
-#      namespaces:
-#        from: All
+      protocol:
+        HTTP
+        # hostname: "*.joshgordon.app"
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

@@ -190,14 +190,3 @@ spec:
         # Service created by the Longhorn chart in longhorn-system.
         - name: miniflux-http
           port: 80
-      filters:
-        - type: ExternalAuth
-          externalAuth:
-            protocol: GRPC
-            backendRef:
-              name: crowdsec-envoy-bouncer
-              namespace: crowdsec
-              port: 8080
-            grpc: {}
-            forwardBody:
-              maxSize: 65535 # lets AppSec inspect POST bodies

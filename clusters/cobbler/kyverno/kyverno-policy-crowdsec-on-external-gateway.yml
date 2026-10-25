@@ -1,0 +1,149 @@
+---
+# Gives every HTTPRoute on external-gateway/external an ExternalAuth filter,
+# so nothing is exposed without at least the CrowdSec bouncer in front of it.
+#
+# Cilium only honours ONE ExternalAuth filter per HTTPRoute rule (if there are
+# several, it silently keeps the last). So this policy only ever adds a filter
+# to rules that don't already have one:
+#
+#   * No ExternalAuth on the rule      -> CrowdSec bouncer is added.
+#   * Rule already has ExternalAuth    -> left alone. This is how you use
+#                                         Authentik (or anything else): write
+#                                         its filter on the route yourself.
+#   * Rule is a pure redirect          -> left alone (http -> https etc.).
+#   * Route labelled
+#     crowdsec.joshgordon.app/skip=true -> whole route left alone.
+#
+# Untested against a live cluster. Dry-run first with the Kyverno CLI:
+#   kyverno apply httproute-external-auth.yml --resource <some-httproute>.yml
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: httproute-default-external-auth
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["gateway.networking.k8s.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["httproutes"]
+    objectSelector:
+      matchExpressions:
+        - key: crowdsec.joshgordon.app/skip
+          operator: NotIn
+          values: ["true"]
+  matchConditions:
+    - name: on-external-gateway
+      expression: >-
+        object.spec.?parentRefs.orValue([]).exists(p,
+          p.name == 'external' &&
+          p.?namespace.orValue(object.metadata.namespace) == 'external-gateway')
+  variables:
+    - name: bouncerFilter
+      expression: >-
+        {
+          "type": dyn("ExternalAuth"),
+          "externalAuth": dyn({
+            "protocol": dyn("GRPC"),
+            "backendRef": dyn({
+              "name": dyn("crowdsec-envoy-bouncer"),
+              "namespace": dyn("crowdsec"),
+              "port": dyn(8080)
+            }),
+            "grpc": dyn({}),
+            "forwardBody": dyn({
+              "maxSize": dyn(65535)
+            })
+          })
+        }
+    # Indexes of rules that have no ExternalAuth and aren't redirects.
+    - name: rulesToProtect
+      expression: >-
+        lists.range(size(object.spec.?rules.orValue([]))).filter(i,
+          !object.spec.rules[i].?filters.orValue([]).exists(f,
+            f.type == 'ExternalAuth' || f.type == 'RequestRedirect'))
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: >-
+          variables.rulesToProtect.map(i,
+            has(object.spec.rules[i].filters)
+              ? JSONPatch{op: "add", path: "/spec/rules/" + string(i) + "/filters/-",
+                          value: variables.bouncerFilter}
+              : JSONPatch{op: "add", path: "/spec/rules/" + string(i) + "/filters",
+                          value: [variables.bouncerFilter]})
+---
+# Creates the ReferenceGrant each route's namespace needs before its
+# ExternalAuth filter may point at the bouncer Service in `crowdsec`.
+# Without it Cilium makes the route return 500.
+#
+# synchronize is off on purpose: with several routes in one namespace sharing
+# one grant, deleting one route shouldn't take the grant away from the rest.
+# Leftover grants are harmless; delete them by hand if a namespace goes away.
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: httproute-crowdsec-referencegrant
+spec:
+  evaluation:
+    synchronize:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["gateway.networking.k8s.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["httproutes"]
+    objectSelector:
+      matchExpressions:
+        - key: crowdsec.joshgordon.app/skip
+          operator: NotIn
+          values: ["true"]
+  matchConditions:
+    - name: on-external-gateway
+      expression: >-
+        object.spec.?parentRefs.orValue([]).exists(p,
+          p.name == 'external' &&
+          p.?namespace.orValue(object.metadata.namespace) == 'external-gateway')
+  variables:
+    - name: ns
+      expression: object.metadata.namespace
+  generate:
+    - expression: |
+        generator.apply("crowdsec", [
+          {
+            "apiVersion": dyn("gateway.networking.k8s.io/v1beta1"),
+            "kind": dyn("ReferenceGrant"),
+            "metadata": dyn({
+              "name": dyn("crowdsec-bouncer-from-" + string(variables.ns))
+            }),
+            "spec": dyn({
+              "from": dyn([{
+                "group": dyn("gateway.networking.k8s.io"),
+                "kind": dyn("HTTPRoute"),
+                "namespace": dyn(string(variables.ns))
+              }]),
+              "to": dyn([{
+                "group": dyn(""),
+                "kind": dyn("Service"),
+                "name": dyn("crowdsec-envoy-bouncer")
+              }])
+            })
+          }
+        ])
+---
+# Kyverno needs to see HTTPRoutes and create ReferenceGrants.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-gateway-api
+  labels:
+    rbac.kyverno.io/aggregate-to-admission-controller: "true"
+    rbac.kyverno.io/aggregate-to-background-controller: "true"
+rules:
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["referencegrants"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
