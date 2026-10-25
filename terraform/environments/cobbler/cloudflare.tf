@@ -38,7 +38,10 @@ resource "vault_generic_endpoint" "cloudflare_dns_editor_role" {
           "com.cloudflare.api.account.zone.2ee0444a5f89c9c46f48f65264e4ada8": "*",
           "com.cloudflare.api.account.zone.cb86beacfcc5f893c6c6ab59458540de": "*",
           "com.cloudflare.api.account.zone.de8c36388f0fedc042f8ec672b941425": "*",
-          "com.cloudflare.api.account.zone.bb8557caac4319d0e0bbf98664fb4b23": "*"
+          "com.cloudflare.api.account.zone.bb8557caac4319d0e0bbf98664fb4b23": "*",
+          "com.cloudflare.api.account.zone.6e5bceb6e137fbc4eb05b6d497aa37f7": "*",
+          "com.cloudflare.api.account.zone.9f5d630f47216679ca21626c8854d2b8": "*",
+          "com.cloudflare.api.account.zone.f34f4d959a209208096fd19bbc4bc698": "*"
         }
       }
     ]
