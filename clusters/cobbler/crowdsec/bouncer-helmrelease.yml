@@ -45,6 +45,7 @@ spec:
       # addresses it should skip over here (pod CIDR, node IPs, any CDN).
       trustedProxies:
         - 10.3.12.75
+        - 10.3.14.0/26
       # Addresses that bypass CrowdSec entirely (e.g. your LAN / VPN).
       exemptIPs:
         - 10.0.0.0/8
