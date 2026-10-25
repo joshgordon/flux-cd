@@ -16,7 +16,7 @@ spec:
     labels:
       expose: "true"
   listeners:
-    - name: joshgordon-app
+    - name: star-joshgordon-app
       port: 443
       protocol: HTTPS
       hostname: "*.joshgordon.app"
@@ -27,7 +27,18 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: joshgordon-wildcard
-    - name: joshgordon-net
+    - name: joshgordon-app
+      port: 443
+      protocol: HTTPS
+      hostname: "joshgordon.app"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: joshgordon-wildcard
+    - name: star-joshgordon-net
       port: 443
       protocol: HTTPS
       hostname: "*.joshgordon.net"
@@ -38,7 +49,18 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: joshgordon-net-wildcard
-    - name: jmg-app
+    - name: joshgordon-net
+      port: 443
+      protocol: HTTPS
+      hostname: "joshgordon.net"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: joshgordon-net-wildcard
+    - name: star-jmg-app
       port: 443
       protocol: HTTPS
       hostname: "*.jmg.app"
@@ -49,7 +71,18 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: jmgapp-wildcard
-    - name: jmg-dev
+    - name: jmg-app
+      port: 443
+      protocol: HTTPS
+      hostname: "jmg.app"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: jmgapp-wildcard
+    - name: star-jmg-dev
       port: 443
       protocol: HTTPS
       hostname: "*.jmg.dev"
@@ -60,10 +93,32 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: jmgdev-wildcard
-    - name: beef-cafe
+    - name: jmg-dev
+      port: 443
+      protocol: HTTPS
+      hostname: "jmg.dev"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: jmgdev-wildcard
+    - name: star-beef-cafe
       port: 443
       protocol: HTTPS
       hostname: "*.beef.cafe"
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: beefcafe-wildcard
+    - name: beef-cafe
+      port: 443
+      protocol: HTTPS
+      hostname: "beef.cafe"
       allowedRoutes:
         namespaces:
           from: All
@@ -81,7 +136,7 @@ spec:
       tls:
         mode: Terminate
         certificateRefs:
-          - name: facefeedbeefcafe-wildcard
+          - name: beefcafe-wildcard
     - name: http
       port: 80
       protocol:
