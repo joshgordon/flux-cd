@@ -50,19 +50,18 @@ spec:
     - name: external
       namespace: external-gateway
   hostnames:
-    - *.joshgordon.app
+    - "*.joshgordon.app"
     - joshgordon.app
-    - *.jmg.app
+    - "*.jmg.app"
     - jmg.app
-    - *.jmg.dev
+    - "*.jmg.dev"
     - jmg.dev
-    - *.joshgordon.dev
+    - "*.joshgordon.dev"
     - joshgordon.dev
-    - *.joshgordon.net
+    - "*.joshgordon.net"
     - joshgordon.net
-    - *.beef.cafe
+    - "*.beef.cafe"
     - beef.cafe
-
   rules:
     - backendRefs:
         - name: nginx
