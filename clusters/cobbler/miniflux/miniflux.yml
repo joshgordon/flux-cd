@@ -200,4 +200,4 @@ spec:
               port: 8080
             grpc: {}
             forwardBody:
-              maxSize: 65536 # lets AppSec inspect POST bodies
+              maxSize: 65535 # lets AppSec inspect POST bodies
