@@ -1,0 +1,18 @@
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: crowdsec-envoy-bouncer-key
+  namespace: crowdsec
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: crowdsec-keys
+  data:
+    - secretKey: BOUNCER_KEY_envoy
+      remoteRef:
+        key: external-secrets/crowdsec-envoy-bouncer-key
+        property: password

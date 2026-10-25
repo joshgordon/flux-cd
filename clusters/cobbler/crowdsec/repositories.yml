@@ -1,0 +1,26 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: crowdsec
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://crowdsecurity.github.io/helm-charts
+---
+# Community Envoy ext_authz bouncer (kdwils/envoy-proxy-crowdsec-bouncer).
+# The chart is only published as OCI, so it's pulled with an OCIRepository.
+# Pinned on purpose: the project warns about breaking changes between releases.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: envoy-proxy-bouncer
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: oci://ghcr.io/kdwils/charts/envoy-proxy-bouncer
+  ref:
+    tag: "0.8.2"
+  layerSelector:
+    mediaType: "application/vnd.cncf.helm.chart.content.v1.tar+gzip"
+    operation: copy

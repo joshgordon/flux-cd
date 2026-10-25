@@ -1,0 +1,93 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: crowdsec
+  namespace: flux-system
+spec:
+  interval: 10m
+  releaseName: crowdsec
+  targetNamespace: crowdsec
+  chart:
+    spec:
+      chart: crowdsec
+      # Latest release I could find on 2026-10-23 (bundles CrowdSec 1.8.1).
+      # Check https://github.com/crowdsecurity/helm-charts/releases before merging.
+      version: "0.24.2"
+      reconcileStrategy: ChartVersion
+      sourceRef:
+        kind: HelmRepository
+        name: crowdsec
+  values:
+    # How container log lines are framed on disk. Set to "docker" if your
+    # nodes don't run containerd.
+    container_runtime: containerd
+
+    agent:
+      # Read Cilium's gateway access logs (the JSON format you set up in the
+      # CiliumGatewayClassConfig). cilium-envoy also logs its own diagnostics;
+      # those lines just show up as "unparsed" in cscli metrics.
+      acquisition:
+        - namespace: kube-system
+          podName: cilium-envoy-*
+          program: envoy
+          poll_without_inotify: true
+      env:
+        - name: COLLECTIONS
+          value: yanis-kouidri/envoy
+      # cilium-envoy runs on every node, so the agent DaemonSet needs to as
+      # well. Harmless if your control-plane nodes aren't tainted.
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+
+    lapi:
+      persistentVolume:
+        data:
+          enabled: true
+          storageClassName: longhorn
+          size: 1Gi
+        config:
+          enabled: true
+          storageClassName: longhorn
+          size: 100Mi
+      env:
+        # Pre-registers the bouncer with a fixed key from the secret, so the
+        # bouncer and LAPI agree without a manual `cscli bouncers add`.
+        - name: BOUNCER_KEY_envoy
+          valueFrom:
+            secretKeyRef:
+              name: crowdsec-keys
+              key: BOUNCER_KEY_envoy
+        # Uncomment to enroll this instance in the CrowdSec console.
+        # - name: ENROLL_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: crowdsec-keys
+        #       key: ENROLL_KEY
+        # - name: ENROLL_INSTANCE_NAME
+        #   value: cobbler
+
+    appsec:
+      enabled: true
+      acquisitions:
+        - source: appsec
+          listen_addr: 0.0.0.0:7422
+          path: /
+          appsec_configs:
+            - crowdsecurity/appsec-default
+          labels:
+            type: appsec
+      env:
+        - name: COLLECTIONS
+          value: crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+      # CrowdSec's docs note the default AppSec limit can OOM; this is their
+      # suggested bump.
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
