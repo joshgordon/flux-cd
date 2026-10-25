@@ -48,6 +48,4 @@ spec:
         - 10.3.14.0/26
       # Addresses that bypass CrowdSec entirely (e.g. your LAN / VPN).
       exemptIPs:
-        - 10.0.0.0/8
-        - 192.168.0.0/16
         - 144.202.232.42
