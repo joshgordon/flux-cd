@@ -8,13 +8,13 @@ kind: Gateway
 metadata:
   name: external
   namespace: external-gateway
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-issuer
 spec:
   gatewayClassName: cilium
   infrastructure:
     labels:
       expose: "true"
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-issuer
   listeners:
     - name: joshgordon-app
       port: 443
