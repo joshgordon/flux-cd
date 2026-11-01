@@ -1,0 +1,49 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich
+  namespace: legacy-nginx
+spec:
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: immich-1
+  namespace: legacy-nginx
+  labels:
+    kubernetes.io/service-name: immich
+    endpointslice.kubernetes.io/managed-by: flux
+addressType: IPv4
+ports:
+  - name: http
+    port: 2283
+    protocol: TCP
+endpoints:
+  - addresses:
+      - 10.3.12.34
+    conditions:
+      ready: true
+---
+# One route for every hostname nginx still serves. Add/remove hostnames as
+# you migrate things into the cluster.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: immich
+  namespace: legacy-nginx
+spec:
+  parentRefs:
+    - name: external
+      namespace: external-gateway
+  hostnames:
+    - immich.joshgordon.app
+  rules:
+    - backendRefs:
+        - name: immich
+          port: 8080
