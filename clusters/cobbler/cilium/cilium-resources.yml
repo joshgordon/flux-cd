@@ -6,12 +6,13 @@ metadata:
 spec:
   externalIPs: true
   interfaces:
-  - ^en.*
+    - ^en.*
+    - ^eth.*
   loadBalancerIPs: true
   nodeSelector:
     matchExpressions:
-    - key: node-role.kubernetes.io/control-plane
-      operator: Exists
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
   serviceSelector:
     matchLabels:
       control-plane-svc: "true"
@@ -25,5 +26,5 @@ spec:
     matchLabels:
       control-plane-svc: "true"
   blocks:
-  - start: 10.3.14.5
-    stop: 10.3.14.5
+    - start: 10.3.14.5
+      stop: 10.3.14.5

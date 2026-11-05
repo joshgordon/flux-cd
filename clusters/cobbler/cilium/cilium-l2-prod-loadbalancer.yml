@@ -7,6 +7,7 @@ spec:
   externalIPs: true
   interfaces:
     - ^en.*
+    - ^eth.*
   loadBalancerIPs: true
   nodeSelector:
     matchExpressions:
