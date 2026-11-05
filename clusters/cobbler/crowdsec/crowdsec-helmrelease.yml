@@ -13,7 +13,7 @@ spec:
       chart: crowdsec
       # Latest release I could find on 2026-10-23 (bundles CrowdSec 1.8.1).
       # Check https://github.com/crowdsecurity/helm-charts/releases before merging.
-      version: "0.24.2"
+      version: "0.24.3"
       reconcileStrategy: ChartVersion
       sourceRef:
         kind: HelmRepository
