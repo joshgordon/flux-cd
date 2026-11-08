@@ -23,6 +23,27 @@ spec:
     # nodes don't run containerd.
     container_runtime: containerd
 
+    config:
+      # Mounted in the LAPI pod. Overriding this key replaces the chart's
+      # default, so the auto_registration block must stay or agents can't register.
+      config.yaml.local: |
+        api:
+          server:
+            auto_registration:
+              enabled: true
+              token: "${REGISTRATION_TOKEN}" # handled by the chart, don't change
+              allowed_ranges:
+                - "10.0.0.0/8"
+        db_config:
+          flush:
+            agents_autodelete:
+              login_password: 60m
+      # Mounted in the agent pods: on a clean shutdown, remove its own machine from LAPI.
+      agent_config.yaml.local: |
+        api:
+          client:
+            unregister_on_exit: true
+
     agent:
       # Read Cilium's gateway access logs (the JSON format you set up in the
       # CiliumGatewayClassConfig). cilium-envoy also logs its own diagnostics;
