@@ -1,0 +1,262 @@
+---
+# Database credentials for the meshcentral role on the shared CNPG cluster.
+# OpenBao: secret/external-secrets/meshcentral-db-creds  (username, password)
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: meshcentral-db-creds
+  namespace: postgres
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: meshcentral-db-creds
+    template:
+      type: kubernetes.io/basic-auth
+  data:
+    - secretKey: username
+      remoteRef:
+        key: external-secrets/meshcentral-db-creds
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: external-secrets/meshcentral-db-creds
+        property: password
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: shared-meshcentral
+  namespace: postgres
+spec:
+  cluster:
+    name: shared
+  name: meshcentral
+  ensure: present
+  login: true
+  passwordSecret:
+    name: meshcentral-db-creds
+  databaseRoleReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: shared-meshcentral
+  namespace: postgres
+spec:
+  cluster:
+    name: shared
+  name: meshcentral
+  owner: meshcentral
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: meshcentral
+---
+# The whole config.json is rendered here, so there is no config on the PVC and
+# nothing to hand-edit. MeshCentral only reads it at startup: restart the pod
+# after changing anything in OpenBao.
+#
+# OpenBao:
+#   secret/external-secrets/meshcentral-db-creds    username, password
+#   secret/external-secrets/meshcentral/conf  session_key, oidc_client_id, oidc_client_secret
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: meshcentral-config
+  namespace: meshcentral
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: meshcentral-config
+    template:
+      data:
+        # toJson quotes and escapes each value, so odd characters in a
+        # password can't break the JSON.
+        #
+        # MeshCentral lowercases every config key, so camelCase options meant
+        # for libraries (e.g. rejectUnauthorized) silently stop working.
+        # ssl: "no-verify" is a string value, which node-postgres turns into
+        # { rejectUnauthorized: false } - encrypted, CA not verified.
+        config.json: |
+          {
+            "$schema": "https://raw.githubusercontent.com/Ylianst/MeshCentral/master/meshcentral-config-schema.json",
+            "settings": {
+              "port": 8080,
+              "aliasPort": 443,
+              "redirPort": 0,
+              "tlsOffload": true,
+              "sessionKey": {{ .session_key | toJson }},
+              "postgres": {
+                "host": "shared-rw.postgres.svc.cluster.local",
+                "port": 5432,
+                "user": {{ .db_username | toJson }},
+                "password": {{ .db_password | toJson }},
+                "database": "meshcentral",
+                "createdatabase": false,
+                "ssl": "no-verify"
+              }
+            },
+            "domains": {
+              "": {
+                "certUrl": "https://remote.bluesmoke.network",
+                "authStrategies": {
+                  "oidc": {
+                    "clientid": {{ .oidc_client_id | toJson }},
+                    "clientsecret": {{ .oidc_client_secret | toJson }},
+                    "newAccounts": true,
+                    "issuer": "https://auth.joshgordon.app/application/o/meshcentral/",
+                    "callbackURL": "https://remote.bluesmoke.network/oidc-callback"
+                  }
+                }
+              }
+            }
+          }
+  data:
+    - secretKey: db_username
+      remoteRef:
+        key: external-secrets/meshcentral-db-creds
+        property: username
+    - secretKey: db_password
+      remoteRef:
+        key: external-secrets/meshcentral-db-creds
+        property: password
+    - secretKey: session_key
+      remoteRef:
+        key: external-secrets/meshcentral/conf
+        property: session_key
+    - secretKey: oidc_client_id
+      remoteRef:
+        key: external-secrets/meshcentral/conf
+        property: oidc_client_id
+    - secretKey: oidc_client_secret
+      remoteRef:
+        key: external-secrets/meshcentral/conf
+        property: oidc_client_secret
+---
+# Server certs/keys (agents pin these), agent builds, and the NeDB files during
+# migration. Back this up.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: meshcentral-data-longhorn
+  namespace: meshcentral
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Users' "My Files" uploads.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: meshcentral-files-longhorn
+  namespace: meshcentral
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: meshcentral
+  name: meshcentral
+  namespace: meshcentral
+spec:
+  # 0 while the PVC is seeded and the DB migrated. Set to 1 at cutover.
+  # Never more than 1: MeshCentral isn't safe to run as plain replicas.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: meshcentral
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: meshcentral
+    spec:
+      # Alpine/musl gives up on the gordns.net search domain (Cloudflare's
+      # NOTFOUND answer) instead of trying the name as-is. ndots:1 makes any
+      # dotted name resolve as absolute first.
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
+      containers:
+        - name: meshcentral
+          image: ghcr.io/ylianst/meshcentral:1.3.1-postgresql # pin >= your old server's version
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: DYNAMIC_CONFIG
+              value: "false"
+            - name: CONFIG_FILE
+              value: /opt/meshcentral/config/config.json
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /opt/meshcentral/config
+              readOnly: true
+            - name: data
+              mountPath: /opt/meshcentral/meshcentral-data
+            - name: files
+              mountPath: /opt/meshcentral/meshcentral-files
+          # First start downloads agent builds from GitHub, so give it time.
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health.ashx
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3
+      volumes:
+        - name: config
+          secret:
+            secretName: meshcentral-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: meshcentral-data-longhorn
+        - name: files
+          persistentVolumeClaim:
+            claimName: meshcentral-files-longhorn
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: meshcentral
+  name: meshcentral-http
+  namespace: meshcentral
+spec:
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: http
+  selector:
+    app: meshcentral

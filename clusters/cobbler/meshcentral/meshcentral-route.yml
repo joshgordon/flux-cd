@@ -1,0 +1,21 @@
+---
+# Commit this at cutover, not before: as soon as it exists, the gateway sends
+# remote.bluesmoke.network here instead of the *.bluesmoke.network catch-all
+# in legacy-nginx.
+#
+# Kyverno will add the CrowdSec ExternalAuth filter automatically.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: meshcentral
+  namespace: meshcentral
+spec:
+  parentRefs:
+    - name: external
+      namespace: external-gateway
+  hostnames:
+    - remote.bluesmoke.network
+  rules:
+    - backendRefs:
+        - name: meshcentral-http
+          port: 80
