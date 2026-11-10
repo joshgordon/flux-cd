@@ -197,17 +197,6 @@ endpoints:
     alerts:
       - type: slack
 
-  - name: outline
-    group: Docker Services
-    ui:
-      hide-hostname: true
-    url: "http://outline.joshgordon.app"
-    interval: 60s
-    conditions:
-      - "[STATUS] == 200"
-    alerts:
-      - type: slack
-
   - name: miniflux
     group: K8s Services
     ui:
@@ -259,7 +248,7 @@ endpoints:
     interval: 5m
     url: tls://auth.joshgordon.app:443
     conditions:
-      - "[CERTIFICATE_EXPIRATION] > 168h"
+      - "[CERTIFICATE_EXPIRATION] > 24h"
     alerts:
       - type: slack
         failure-threshold: 2
