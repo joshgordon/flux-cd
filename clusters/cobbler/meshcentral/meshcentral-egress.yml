@@ -1,0 +1,91 @@
+---
+# Egress allowlist for MeshCentral. Once any egress rule selects a pod, Cilium
+# drops everything else it sends. Ingress is not affected by this policy.
+#
+# What MeshCentral actually dials out to:
+#   - DNS
+#   - Postgres (shared CNPG cluster)
+#   - The external gateway: certUrl (remote.bluesmoke.network) and the OIDC
+#     issuer (auth.joshgordon.app), both resolved via split-horizon DNS
+#   - npm registry: OIDC modules are installed on every start (until they are
+#     baked into the image)
+#   - GitHub: agent release checks (api.github.com, daily) and downloads
+#     (github.com, redirected to *.githubusercontent.com)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: meshcentral-egress
+  namespace: meshcentral
+spec:
+  endpointSelector:
+    matchLabels:
+      app: meshcentral
+  egress:
+    # DNS, through Cilium's DNS proxy so the toFQDNs rule below can learn IPs.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+
+    # Postgres: any instance of the shared cluster, so failover keeps working.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: postgres
+            cnpg.io/cluster: shared
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol:
+                TCP
+
+                #     # External gateway LoadBalancer pool (cilium-l2-prod-loadbalancer:
+                #     # 10.3.14.48-63). UNVERIFIED: how Cilium classifies pod -> Gateway LB
+                #     # traffic for egress policy. Check with the drop monitor after applying.
+                #     - toCIDR:
+                #         - 10.3.14.48/28
+                #       toPorts:
+                #         - ports:
+                #             - port: "443"
+                #               protocol: TCP
+    # When this pod's request goes through the gateway, Envoy's onward
+    # connections are checked against THIS policy. So the gateway's
+    # ext_authz call and its upstream for every hostname MeshCentral uses
+    # must be allowed here, or Envoy answers 403.
+    #   CrowdSec envoy bouncer (ext_authz gRPC)
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: crowdsec
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    #   Authentik server (auth.joshgordon.app, OIDC issuer)
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: authentik
+      toPorts:
+        - ports:
+            - port: "9000"
+              protocol: TCP
+
+    # Internet hosts, by name.
+    - toFQDNs:
+        - matchName: registry.npmjs.org
+        - matchName: github.com
+        - matchName: api.github.com
+        - matchPattern: "*.githubusercontent.com"
+        - matchName: auth.joshgordon.app
+        - matchName: remote.bluesmoke.network
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
