@@ -38,7 +38,6 @@ spec:
       filters:
         - type: RequestRedirect
           requestRedirect:
-            scheme: https
             hostname: meshcentral.cobbler.gordns.net
             statusCode: 302
 ---
