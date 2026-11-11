@@ -106,6 +106,7 @@ spec:
             },
             "domains": {
               "": {
+                "allowedOrigin": ["meshcentral.cobbler.gordns.net"],
                 "certUrl": "https://remote.bluesmoke.network",
                 "authStrategies": {
                   "oidc": {
