@@ -88,6 +88,7 @@ spec:
           {
             "$schema": "https://raw.githubusercontent.com/Ylianst/MeshCentral/master/meshcentral-config-schema.json",
             "settings": {
+              "agentAliasDNS": "remote.bluesmoke.network",
               "port": 8080,
               "aliasPort": 443,
               "redirPort": 0,
@@ -112,7 +113,7 @@ spec:
                     "clientsecret": {{ .oidc_client_secret | toJson }},
                     "newAccounts": true,
                     "issuer": "https://auth.joshgordon.app/application/o/meshcentral/",
-                    "callbackURL": "https://remote.bluesmoke.network/oidc-callback"
+                    "callbackURL": "https://meshcentral.cobbler.gordns.net/oidc-callback"
                   }
                 }
               }
