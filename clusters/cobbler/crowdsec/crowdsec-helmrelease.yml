@@ -44,6 +44,25 @@ spec:
           client:
             unregister_on_exit: true
 
+      profiles.yaml: |
+        name: default_ip_remediation
+        filters:
+          - Alert.Remediation == true && Alert.GetScope() == "Ip"
+        decisions:
+          - type: ban
+            duration: 4h   # used only if duration_expr is removed
+        # Repeat offenders get longer bans: 4h the first time, then 8h, 12h...
+        duration_expr: Sprintf('%dh', (GetDecisionsCount(Alert.GetValue()) + 1) * 4)
+        on_success: break
+        ---
+        name: default_range_remediation
+        filters:
+          - Alert.Remediation == true && Alert.GetScope() == "Range"
+        decisions:
+          - type: ban
+            duration: 4h
+        on_success: break
+
     agent:
       # Read Cilium's gateway access logs (the JSON format you set up in the
       # CiliumGatewayClassConfig). cilium-envoy also logs its own diagnostics;

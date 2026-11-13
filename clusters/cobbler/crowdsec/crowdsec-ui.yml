@@ -1,0 +1,110 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: crowdsec-ui-data
+  namespace: crowdsec
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: crowdsec-web-ui-creds
+  namespace: crowdsec
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: crowdsec-web-ui-creds
+    template:
+      data:
+        CONFIG_INSTANCE_LAPI_AUTH_USERNAME: "{{ .username }}"
+        CONFIG_INSTANCE_LAPI_AUTH_PASSWORD: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: external-secrets/crowdsec/crowdsec-web-ui
+        property: password
+    - secretKey: username
+      remoteRef:
+        key: external-secrets/crowdsec/crowdsec-web-ui
+        property: username
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: crowdsec-ui
+  name: crowdsec-ui
+  namespace: crowdsec
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crowdsec-ui
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: crowdsec-ui
+    spec:
+      containers:
+        - image: ghcr.io/theduffman85/crowdsec-web-ui:2026.11.10
+          name: crowdsec-web-ui
+          resources: {}
+          env:
+            - name: CONFIG_INSTANCE_LAPI_URL
+              value: http://crowdsec-service:8080
+          envFrom:
+            - secretRef:
+                name: crowdsec-web-ui-creds
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: crowdsec-ui-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: crowdsec-ui
+  name: crowdsec-ui
+spec:
+  ports:
+    - port: 3000
+      protocol: TCP
+      targetPort: 3000
+  selector:
+    app: crowdsec-ui
+status:
+  loadBalancer: {}
+---
+# Internal: the full UI, only on the internal gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: crowdsec-ui
+  namespace: crowdsec
+spec:
+  parentRefs:
+    - name: internal
+      namespace: internal-gateway
+      sectionName: https
+  hostnames:
+    - crowdsec.cobbler.gordns.net
+  rules:
+    - backendRefs:
+        - name: crowdsec-ui
+          port: 3000
