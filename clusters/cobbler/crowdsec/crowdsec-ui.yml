@@ -58,7 +58,7 @@ spec:
         app: crowdsec-ui
     spec:
       containers:
-        - image: ghcr.io/theduffman85/crowdsec-web-ui:2026.11.10
+        - image: ghcr.io/theduffman85/crowdsec-web-ui:2026.11.11
           name: crowdsec-web-ui
           resources: {}
           env:
