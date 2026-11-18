@@ -39,7 +39,10 @@ spec:
     hostname: "*.cobbler.gordns.net"
     allowedRoutes:
       namespaces:
-        from: All
+        from: Selector
+        selector:
+          matchLabels:
+            gateway.joshgordon.net/internal: "true"
     tls:
       mode: Terminate
       certificateRefs:
