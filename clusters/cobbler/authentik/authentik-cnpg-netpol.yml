@@ -1,0 +1,60 @@
+---
+# Ingress allowlist for Authentik's own CNPG cluster. Once this selects the
+# instance pods, anything not listed below is dropped.
+#
+# Only the Authentik server and worker use the database. The LDAP outposts
+# in this namespace talk to the server's API, not Postgres, so they are
+# deliberately not allowed here.
+#
+# Port 8000 is the CNPG instance manager (status, backups, failover).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: authentik-pg-ingress
+  namespace: authentik
+spec:
+  endpointSelector:
+    matchLabels:
+      cnpg.io/cluster: authentik
+  ingress:
+    # Instances of this cluster: streaming replication (5432) and peer
+    # status checks (8000).
+    - fromEndpoints:
+        - matchLabels:
+            cnpg.io/cluster: authentik
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+            - port: "8000"
+              protocol: TCP
+
+    # CNPG operator: status polling, failover, and triggering the plugin
+    # (barman-cloud) backups via the instance manager.
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: cnpg-system
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+            - port: "5432"
+              protocol: TCP
+
+    # Kubelet liveness/readiness/startup probes.
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+
+    # Authentik server and worker (Helm release authentik-authentik).
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: authentik
+            app.kubernetes.io/instance: authentik-authentik
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
