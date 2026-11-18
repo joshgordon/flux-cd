@@ -2,6 +2,9 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: gatus
+  labels:
+    gateway.joshgordon.net/external: "true"
+    cnpg.joshgordon.net/shared: "true"
 ---
 apiVersion: apps/v1
 kind: Deployment

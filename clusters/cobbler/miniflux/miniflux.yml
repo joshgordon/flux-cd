@@ -53,6 +53,9 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: miniflux
+  labels:
+    gateway.joshgordon.net/external: "true"
+    cnpg.joshgordon.net/shared: "true"
 ---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
