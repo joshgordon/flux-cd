@@ -1,0 +1,62 @@
+---
+# Ingress allowlist for the shared CNPG cluster. Once this selects the
+# instance pods, anything not listed below is dropped.
+#
+# App access is granted per namespace by labeling the Namespace:
+#   cnpg.joshgordon.net/shared: "true"
+# (Cilium exposes namespace labels to policy under
+#  k8s:io.cilium.k8s.namespace.labels.<key>.)
+#
+# Port 8000 is the CNPG instance manager (status, backups, failover).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: shared-pg-ingress
+  namespace: postgres
+spec:
+  endpointSelector:
+    matchLabels:
+      cnpg.io/cluster: shared
+  ingress:
+    # Instances of this cluster: streaming replication (5432) and peer
+    # status checks (8000).
+    - fromEndpoints:
+        - matchLabels:
+            cnpg.io/cluster: shared
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+            - port: "8000"
+              protocol: TCP
+
+    # CNPG operator: status polling, failover, and triggering the plugin
+    # (barman-cloud) backups via the instance manager. Rare, so it may not
+    # show up in a short Hubble capture, but required.
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: cnpg-system
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+            - port: "5432"
+              protocol: TCP
+
+    # Kubelet liveness/readiness/startup probes. Cilium allows the local host
+    # by default; listed explicitly so this keeps working if that changes.
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+
+    # Apps in namespaces that opted in.
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.cilium.k8s.namespace.labels.cnpg.joshgordon.net/shared: "true"
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
