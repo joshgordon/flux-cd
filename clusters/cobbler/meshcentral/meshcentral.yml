@@ -195,6 +195,7 @@ spec:
     metadata:
       labels:
         app: meshcentral
+        ingress.joshgordon.net/gateway: "true"
     spec:
       # Alpine/musl gives up on the gordns.net search domain (Cloudflare's
       # NOTFOUND answer) instead of trying the name as-is. ndots:1 makes any

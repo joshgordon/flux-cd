@@ -115,6 +115,7 @@ spec:
     metadata:
       labels:
         app: miniflux
+        ingress.joshgordon.net/gateway: "true"
     spec:
       initContainers:
         - image: ghcr.io/miniflux/miniflux:2.3.5-distroless

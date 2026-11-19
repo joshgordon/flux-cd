@@ -37,6 +37,10 @@ spec:
       version: 2026.8.5
   interval: 1m0s
   values:
+    server:
+      # Lets the gateway in (CiliumClusterwideNetworkPolicy gateway-backends).
+      podLabels:
+        ingress.joshgordon.net/gateway: "true"
     serviceAccount:
       fullnameOverride: authentik-server-sa
 

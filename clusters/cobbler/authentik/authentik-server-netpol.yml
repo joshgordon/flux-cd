@@ -1,0 +1,27 @@
+---
+# Extra ingress for the Authentik server, on top of the cluster-wide
+# gateway-backends policy (which it opts into via server.podLabels).
+#
+# Outposts that Authentik deploys into this namespace (the LDAP outposts
+# today) connect straight to the server's Service, not through a Gateway,
+# and hold a websocket open to it.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: authentik-server-from-outposts
+  namespace: authentik
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: authentik
+      app.kubernetes.io/component: server
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/managed-by: goauthentik.io
+      toPorts:
+        - ports:
+            - port: "9000"
+              protocol: TCP
+            - port: "9443"
+              protocol: TCP

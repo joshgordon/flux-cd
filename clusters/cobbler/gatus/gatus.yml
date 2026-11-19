@@ -24,6 +24,7 @@ spec:
     metadata:
       labels:
         app: gatus
+        ingress.joshgordon.net/gateway: "true"
     spec:
       volumes:
         - name: config

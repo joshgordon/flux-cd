@@ -56,6 +56,7 @@ spec:
     metadata:
       labels:
         app: crowdsec-ui
+        ingress.joshgordon.net/gateway: "true"
     spec:
       containers:
         - image: ghcr.io/theduffman85/crowdsec-web-ui:2026.11.12

@@ -1,0 +1,27 @@
+---
+# Pods that back an HTTPRoute opt in with the pod label
+#   ingress.joshgordon.net/gateway: "true"
+# and from then on accept traffic only from the Gateway's Envoy (the
+# reserved `ingress` identity) and their own node's kubelet (probes).
+#
+# Selecting a pod makes its ingress default-deny, so anything else it needs
+# (e.g. Authentik's outposts -> server) goes in a per-namespace
+# CiliumNetworkPolicy next to the app; allow rules add up.
+#
+# Which Gateway may route to a namespace is decided separately, by the
+# gateway.joshgordon.net/{external,internal} namespace labels.
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: gateway-backends
+spec:
+  endpointSelector:
+    matchLabels:
+      ingress.joshgordon.net/gateway: "true"
+  ingress:
+    - fromEntities:
+        - ingress
+    # Kubelet probes. Cilium allows the local host by default; listed so this
+    # keeps working if that changes.
+    - fromEntities:
+        - host
