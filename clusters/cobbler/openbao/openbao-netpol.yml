@@ -1,0 +1,39 @@
+---
+# Ingress for the OpenBao server pods.
+#
+# 8200 (API/UI) stays open to everything, as before: LAN clients come in
+# through the openbao-openbao-ui LoadBalancer, and in-cluster clients
+# (external-secrets, cert-manager, the tofu runner, agent-injected pods,
+# Gatus) are spread across namespaces. Auth is OpenBao's job there.
+#
+# 8201 (Raft + request forwarding to the active node) and 8202 (replication,
+# unused today) are server-to-server only. Nothing else should ever reach the
+# cluster port: it's how peers join and replicate the whole datastore.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openbao-server-ingress
+  namespace: openbao
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+      component: server
+  ingress:
+    - fromEntities:
+        - all
+      toPorts:
+        - ports:
+            - port: "8200"
+              protocol: TCP
+
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: openbao
+            component: server
+      toPorts:
+        - ports:
+            - port: "8201"
+              protocol: TCP
+            - port: "8202"
+              protocol: TCP
