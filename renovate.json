@@ -15,5 +15,21 @@
     "ignorePaths": [
       "clusters/cobbler/flux-system/**"
     ]
-  }
+  },
+  "packageRules": [
+    {
+      "description": "Longhorn can only be upgraded one minor version at a time (its pre-upgrade hook rejects skips) and can't be downgraded. Open a separate PR per minor so each can be merged and rolled out in order.",
+      "matchDatasources": [
+        "helm"
+      ],
+      "matchPackageNames": [
+        "longhorn"
+      ],
+      "separateMultipleMinor": true,
+      "automerge": false,
+      "prBodyNotes": [
+        "⚠️ **Longhorn upgrades one minor version at a time.** If several Longhorn PRs are open, merge the lowest version first. Before merging the next one, wait until the HelmRelease is `Ready` and every volume shows the new engine (`kubectl -n longhorn-system get volumes.longhorn.io`). Skipping a minor makes the upgrade fail its pre-upgrade check."
+      ]
+    }
+  ]
 }
