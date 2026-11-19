@@ -1,0 +1,108 @@
+---
+# Ingress allowlists for CrowdSec. Each policy makes the selected pods
+# default-deny for ingress; only what's listed gets in.
+# (crowdsec-ui is covered by the cluster-wide gateway-backends policy.)
+#
+# Probes come from the local kubelet (`host` entity).
+
+# LAPI: the decision/alert API. Agents, AppSec, the bouncer and the UI all
+# live in this namespace; nothing outside it should talk to the LAPI
+# (auto-registration accepts any 10.0.0.0/8 address that has the token).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: crowdsec-lapi-ingress
+  namespace: crowdsec
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: crowdsec
+      type: lapi
+  ingress:
+    - fromEndpoints:
+        - {}   # any pod in the crowdsec namespace
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+            - port: "6060"
+              protocol: TCP
+---
+# AppSec (WAF): only the bouncer forwards requests to it.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: crowdsec-appsec-ingress
+  namespace: crowdsec
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: crowdsec
+      type: appsec
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: envoy-proxy-bouncer
+      toPorts:
+        - ports:
+            - port: "7422"
+              protocol: TCP
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "6060"
+              protocol: TCP
+            - port: "7422"
+              protocol: TCP
+---
+# Envoy bouncer (ext_authz gRPC). Cilium's Envoy runs in the host network
+# namespace and makes the ext_authz call itself, so it arrives as `host`
+# (Envoy on the same node) or `remote-node` (Envoy on another node) -- NOT
+# as the reserved `ingress` identity that gateway->backend traffic uses.
+# `ingress` is listed too in case that ever changes. If this policy is wrong,
+# every route with the ExternalAuth filter (all of the external gateway)
+# fails, so check external sites right after changing it.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: crowdsec-bouncer-ingress
+  namespace: crowdsec
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: envoy-proxy-bouncer
+  ingress:
+    - fromEntities:
+        - host
+        - remote-node
+        - ingress
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+---
+# Agents (log readers): nothing should connect to them except probes.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: crowdsec-agent-ingress
+  namespace: crowdsec
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: crowdsec
+      type: agent
+  ingress:
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "6060"
+              protocol: TCP
