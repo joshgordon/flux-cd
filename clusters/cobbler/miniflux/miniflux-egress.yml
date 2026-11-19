@@ -1,0 +1,95 @@
+---
+# Egress allowlist for Miniflux. It fetches arbitrary feed, article and image
+# URLs, so without this anyone who can add a feed can make it request things
+# on the LAN or inside the cluster (SSRF). Once any egress rule selects the
+# pod, Cilium drops everything else it sends. Ingress is not affected.
+#
+# What Miniflux actually dials out to:
+#   - DNS
+#   - Postgres (shared CNPG cluster)
+#   - Authentik for OIDC login (auth.joshgordon.app), resolved via
+#     split-horizon DNS to the external gateway
+#   - Feeds/articles/images on the public internet
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: miniflux-egress
+  namespace: miniflux
+spec:
+  endpointSelector:
+    matchLabels:
+      app: miniflux
+  egress:
+    # DNS, through Cilium's DNS proxy so the toFQDNs rule below can learn IPs.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+
+    # Postgres: any instance of the shared cluster, so failover keeps working.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: postgres
+            cnpg.io/cluster: shared
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+
+    # OIDC via the external gateway. auth.joshgordon.app resolves to the
+    # gateway's private LB IP, which the internet rule below excludes, so it
+    # is allowed by name. Envoy's onward connections for this request are
+    # checked against THIS policy, so the gateway's ext_authz call and the
+    # route's upstream must be allowed too (same as meshcentral-egress).
+    - toFQDNs:
+        - matchName: auth.joshgordon.app
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    #   CrowdSec envoy bouncer (ext_authz gRPC)
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: crowdsec
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    #   Authentik server
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: authentik
+            app.kubernetes.io/name: authentik
+            app.kubernetes.io/component: server
+      toPorts:
+        - ports:
+            - port: "9000"
+              protocol: TCP
+
+    # The public internet, any TCP port (some feeds/images live on odd
+    # ports). Private, CGNAT and link-local ranges are excluded, which keeps
+    # out the LAN, the gateway/OpenBao LoadBalancer IPs and the nodes.
+    # Cluster pods are never matched by CIDR rules; only the explicit rules
+    # above reach them.
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+          except:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+            - 100.64.0.0/10
+            - 169.254.0.0/16
+            - 127.0.0.0/8
+      toPorts:
+        - ports:
+            - port: "0"
+              protocol: TCP
