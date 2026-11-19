@@ -51,7 +51,10 @@ spec:
   chart:
     spec:
       chart: longhorn
-      version: "1.13.0" # verify/bump against https://github.com/longhorn/longhorn/releases
+      # Longhorn only upgrades ONE minor version at a time (its pre-upgrade
+      # hook rejects skips), and it can't be downgraded. Bump x.y -> x.(y+1),
+      # let it finish (incl. volume engine upgrades), then the next one.
+      version: "1.9.2"
       reconcileStrategy: ChartVersion
       sourceRef:
         kind: HelmRepository
@@ -102,6 +105,10 @@ spec:
       storageOverProvisioningPercentage: 100
       # Reclaim space from deleted volumes.
       storageMinimalAvailablePercentage: 10
+      # After a Longhorn upgrade, live-upgrade volume engines to the new
+      # default engine image automatically, one volume per node at a time.
+      # (0 = never, which leaves volumes on old engines across upgrades.)
+      concurrentAutomaticEngineUpgradePerNodeLimit: 1
       # TODO(backups): point at Garage/S3 once it exists, e.g.
       defaultBackupStore:
         backupTarget: s3://bluesmoke-network-longhorn-backup@auto/
@@ -115,3 +122,10 @@ spec:
 
     longhornUI:
       replicas: 1
+
+    # From chart 1.12.1, Longhorn ships its own internal NetworkPolicies
+    # (default on). Kept off while stepping through the upgrades so a policy
+    # mismatch with Cilium can't wedge a storage upgrade; revisit afterwards.
+    # (Ignored by charts older than 1.12.1.)
+    networkPolicies:
+      restrictInternalTraffic: false
