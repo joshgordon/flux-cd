@@ -54,7 +54,7 @@ spec:
       # Longhorn only upgrades ONE minor version at a time (its pre-upgrade
       # hook rejects skips), and it can't be downgraded. Bump x.y -> x.(y+1),
       # let it finish (incl. volume engine upgrades), then the next one.
-      version: "1.9.2"
+      version: "1.10.2"
       reconcileStrategy: ChartVersion
       sourceRef:
         kind: HelmRepository
