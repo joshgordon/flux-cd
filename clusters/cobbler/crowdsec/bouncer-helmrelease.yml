@@ -14,7 +14,29 @@ spec:
     kind: OCIRepository
     name: envoy-proxy-bouncer
     namespace: flux-system
+  # The bouncer is in the request path of every external-gateway route
+  # (ext_authz), so run two, on different nodes. The chart has no affinity
+  # value; add it here. See also bouncer-pdb.yml.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: crowdsec-envoy-bouncer
+            patch: |
+              - op: add
+                path: /spec/template/spec/affinity
+                value:
+                  podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                      - weight: 100
+                        podAffinityTerm:
+                          topologyKey: kubernetes.io/hostname
+                          labelSelector:
+                            matchLabels:
+                              app.kubernetes.io/name: envoy-proxy-bouncer
   values:
+    replicaCount: 2
     # Gives a predictable Service name: crowdsec-envoy-bouncer.crowdsec.svc
     fullnameOverride: crowdsec-envoy-bouncer
     image:

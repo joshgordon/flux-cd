@@ -1,0 +1,13 @@
+---
+# Keep at least one bouncer up through node drains: Envoy's ext_authz call
+# to it guards every external-gateway route.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: crowdsec-envoy-bouncer
+  namespace: crowdsec
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: envoy-proxy-bouncer
