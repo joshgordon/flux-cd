@@ -149,12 +149,12 @@ spec:
 
                   # Restarted recently and still broken: don't loop, flag it.
                   if [ "$hit_age" -lt 1800 ]; then
-                    notify "cilium-operator $hit still has Gateway API disabled ${hit_age}s after starting; not restarting again. Check its logs."
+                    notify "$hit still has Gateway API disabled ${hit_age}s after starting; not restarting again. Check its logs."
                     exit 1
                   fi
 
                   kubectl -n "$NS" rollout restart deployment/cilium-operator
-                  notify "cilium-operator $hit had Gateway API disabled (\"$MSG\") for ${hit_age}s; restarted it."
+                  notify "$hit had Gateway API disabled (\"$MSG\") for ${hit_age}s; restarted it."
           volumes:
             - name: tmp
               emptyDir:
