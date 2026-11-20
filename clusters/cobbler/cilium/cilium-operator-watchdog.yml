@@ -1,0 +1,161 @@
+---
+# Watchdog for a cilium-operator failure mode seen on 2026-11-19:
+#
+# If the operator starts while a just-restarted kube-apiserver is still
+# answering `forbidden` (e.g. during a kured reboot), its one-time check for
+# the Gateway API CRDs fails and it logs
+#   "Required GatewayAPI resources are not found"
+# and runs with Gateway API disabled until restarted. It then stops syncing
+# gateway TLS certs into cilium-secrets, so every cilium-envoy started after
+# that has no certs and resets all HTTPS on its node (and apiservers on that
+# node can't reach Authentik for OIDC).
+#
+# Every 5 minutes this checks the operator's logs for that message and, if
+# found, restarts the operator. It reads logs only -- never the secrets in
+# cilium-secrets -- so it has no access to TLS private keys.
+#
+# Guard rails: it won't judge an operator that started less than 5 minutes
+# ago, and if one that started less than 30 minutes ago is still broken it
+# alerts (and fails the Job) instead of restarting again, so a genuinely
+# missing CRD can't cause a restart loop.
+#
+# Optional Slack notice: create Secret `cilium-operator-watchdog-slack` in
+# kube-system with key SLACK_WEBHOOK_URL. Without it, it just logs.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium-operator-watchdog
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cilium-operator-watchdog
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["cilium-operator"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-operator-watchdog
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-operator-watchdog
+subjects:
+  - kind: ServiceAccount
+    name: cilium-operator-watchdog
+    namespace: kube-system
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cilium-operator-watchdog
+  namespace: kube-system
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 120
+      ttlSecondsAfterFinished: 3600
+      template:
+        spec:
+          serviceAccountName: cilium-operator-watchdog
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: watchdog
+              image: alpine/kubectl:1.36.4
+              command: ["/bin/sh", "-c"]
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: cilium-operator-watchdog-slack
+                      key: SLACK_WEBHOOK_URL
+                      optional: true
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 64Mi
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              args:
+                - |
+                  set -eu
+                  NS=kube-system
+                  MSG='Required GatewayAPI resources are not found'
+                  now=$(date +%s)
+
+                  notify() {
+                    echo "$1"
+                    [ -n "${SLACK_WEBHOOK_URL:-}" ] || return 0
+                    wget -q -O /dev/null --header 'Content-Type: application/json' \
+                      --post-data "{\"text\":\"cobbler: $1\"}" "$SLACK_WEBHOOK_URL" \
+                      || echo "slack notify failed"
+                  }
+                  to_epoch() { date -u -D '%Y-%m-%dT%H:%M:%SZ' -d "$1" +%s; }
+
+                  # name + start time of the running operator container (UTC)
+                  kubectl -n "$NS" get pods -l io.cilium/app=operator \
+                    -o jsonpath='{range .items[*]}{.metadata.name} {.status.containerStatuses[0].state.running.startedAt}{"\n"}{end}' \
+                    > /tmp/pods
+                  [ -s /tmp/pods ] || { echo "no cilium-operator pods found"; exit 0; }
+
+                  hit=""; hit_age=0
+                  while read -r name started; do
+                    [ -n "$name" ] || continue
+                    [ -n "$started" ] || { echo "$name: not running, skipping"; continue; }
+                    age=$(( now - $(to_epoch "$started") ))
+                    if [ "$age" -lt 300 ]; then
+                      echo "$name: started ${age}s ago, too new to judge"
+                    elif kubectl -n "$NS" logs "$name" 2>/dev/null | grep -q "$MSG"; then
+                      hit=$name; hit_age=$age
+                    else
+                      echo "$name: Gateway API enabled (ok)"
+                    fi
+                  done < /tmp/pods
+                  [ -n "$hit" ] || exit 0
+
+                  # Restarted recently and still broken: don't loop, flag it.
+                  if [ "$hit_age" -lt 1800 ]; then
+                    notify "cilium-operator $hit still has Gateway API disabled ${hit_age}s after starting; not restarting again. Check its logs."
+                    exit 1
+                  fi
+
+                  kubectl -n "$NS" rollout restart deployment/cilium-operator
+                  notify "cilium-operator $hit had Gateway API disabled (\"$MSG\") for ${hit_age}s; restarted it."
+          volumes:
+            - name: tmp
+              emptyDir:
+                sizeLimit: 16Mi
