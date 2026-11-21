@@ -28,7 +28,19 @@
       "separateMultipleMinor": true,
       "automerge": false,
       "prBodyNotes": [
-        "⚠️ **Longhorn upgrades one minor version at a time.** If several Longhorn PRs are open, merge the lowest version first. Before merging the next one, wait until the HelmRelease is `Ready` and every volume shows the new engine (`kubectl -n longhorn-system get volumes.longhorn.io`). Skipping a minor makes the upgrade fail its pre-upgrade check."
+        "\u26a0\ufe0f **Longhorn upgrades one minor version at a time.** If several Longhorn PRs are open, merge the lowest version first. Before merging the next one, wait until the HelmRelease is `Ready` and every volume shows the new engine (`kubectl -n longhorn-system get volumes.longhorn.io`). Skipping a minor makes the upgrade fail its pre-upgrade check."
+      ]
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Image tags in HelmRelease values, marked with a `# renovate: datasource=... depName=...` comment on the line above `tag:`.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^clusters/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*tag:\\s*\"?(?<currentValue>[^\"\\s]+)\"?"
       ]
     }
   ]
