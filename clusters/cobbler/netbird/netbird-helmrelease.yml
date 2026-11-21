@@ -59,6 +59,24 @@ spec:
                 path: /spec/strategy
                 value:
                   type: Recreate
+          # Drop the chart's db-seed init container ("CREATE DATABASE if
+          # missing"). CNPG owns the database (netbird-db.yml), and Initium's
+          # Postgres client fails the TLS handshake against the shared cluster
+          # anyway. The server itself connects with Go's pgx, like miniflux.
+          - target:
+              kind: Deployment
+              name: netbird-server
+            patch: |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: netbird-server
+              spec:
+                template:
+                  spec:
+                    initContainers:
+                      - name: db-seed
+                        $patch: delete
           # Public STUN instead of the embedded one. NetBird turns off its own
           # STUN when server.stuns is set, but the chart has no value for it,
           # so this replaces the chart's whole config template.
@@ -128,8 +146,7 @@ spec:
                         grantType: "client_credentials"
   values:
     # Main store in the shared CNPG cluster (see netbird-db.yml). The chart's
-    # db-seed init container would CREATE DATABASE if it were missing; the
-    # CNPG Database CR creates it first, so that step is a no-op.
+    # db-seed init container is removed by a post-render patch above.
     #
     # The trailing dot on host matters: it makes the name absolute, skipping
     # the resolv.conf search list. gordns.net (last search domain) answers
