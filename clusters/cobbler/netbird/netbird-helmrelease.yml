@@ -77,14 +77,16 @@ spec:
                     initContainers:
                       - name: db-seed
                         $patch: delete
-          # Public STUN instead of the embedded one. NetBird turns off its own
-          # STUN when server.stuns is set, but the chart has no value for it,
-          # so this replaces the chart's whole config template.
+          # Server config the chart can't express, so this replaces the
+          # chart's whole config template. Additions over the chart's render:
+          #   - stuns: public STUN; NetBird turns off its own STUN when set.
+          #   - reverseProxy.trustedPeers: who may set X-Forwarded-For.
           #
           # !! This is a copy of the template chart 0.8.0 renders from the
-          # !! values below, plus `stuns`. It OVERRIDES those values: when you
-          # !! change server.config/database/oidc values or bump the chart,
-          # !! re-render (helm template ... | yq 'select(.kind=="ConfigMap")')
+          # !! values below, plus the additions above. It OVERRIDES those
+          # !! values: when you change server.config/database/oidc values or
+          # !! bump the chart, re-render
+          # !! (helm template ... | yq 'select(.kind=="ConfigMap")')
           # !! and update this copy to match.
           # !! The pod's checksum/config annotation is computed before this
           # !! patch, so changing only this block won't restart the server --
@@ -117,6 +119,15 @@ spec:
 
                     authSecret: "${AUTH_SECRET}"
                     dataDir: "/var/lib/netbird"
+
+                    # Accept X-Forwarded-For only from the pod network: Cilium's
+                    # Envoy reaches the server from each node's ingress IP
+                    # (10.0.N.x), and probes from cilium_host. The network
+                    # policy lets nothing else in. Default (empty) trusts
+                    # 0.0.0.0/0, so any client could spoof its source IP.
+                    reverseProxy:
+                      trustedPeers:
+                        - "10.0.0.0/16"
 
                     auth:
                       issuer: "https://netbird.joshgordon.app/oauth2"
@@ -171,6 +182,11 @@ spec:
         managerType: embedded
 
     server:
+      # Newer than the chart's appVersion (0.82.0); Renovate bumps it.
+      image:
+        # renovate: datasource=docker depName=netbirdio/netbird-server
+        tag: "0.83.2"
+
       podLabels:
         ingress.joshgordon.net/gateway: "true"
 
@@ -250,6 +266,10 @@ spec:
               - path: { type: PathPrefix, value: /ws-proxy }
 
     dashboard:
+      image:
+        # renovate: datasource=docker depName=netbirdio/dashboard
+        tag: "v2.98.0"
+
       podLabels:
         ingress.joshgordon.net/gateway: "true"
       config:
