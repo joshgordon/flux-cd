@@ -1,0 +1,141 @@
+---
+# Network policies for NetBird.
+#
+# Ingress from the gateway (and kubelet probes) to both pods comes from the
+# cluster-wide gateway-backends policy, which they opt into with the
+# ingress.joshgordon.net/gateway pod label (set via podLabels in the
+# HelmRelease), and nothing else needs to reach them: there is no in-cluster
+# STUN (peers use public STUN servers directly). The policies here are
+# egress allowlists. Once any egress rule selects a pod, Cilium drops everything
+# else it sends.
+
+# What the combined server dials out to:
+#   - DNS
+#   - Postgres (shared CNPG cluster)
+#   - Its own public URL (netbird.joshgordon.app). The embedded IdP's issuer
+#     is https://netbird.joshgordon.app/oauth2, so validating tokens can mean
+#     fetching its own OIDC discovery/JWKS through the external gateway.
+#   - Authentik (auth.joshgordon.app), once it's added as a connector to the
+#     embedded IdP: code exchange and JWKS are server-side.
+#   - The public internet on 443: NetBird downloads its GeoLite database and
+#     sends anonymous usage metrics (unless disabled).
+#
+# Hostnames that resolve to the gateway's private LB IP are excluded by the
+# internet rule, so they are allowed by name. Envoy's onward connections for
+# those requests are checked against THIS policy, so the gateway's ext_authz
+# call and each route's upstream must be allowed too (same as miniflux-egress).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: netbird-server-egress
+  namespace: netbird
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: netbird
+      app.kubernetes.io/component: server
+  egress:
+    # DNS, through Cilium's DNS proxy so the toFQDNs rule below can learn IPs.
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+
+    # Postgres: any instance of the shared cluster, so failover keeps working.
+    # (The other half is the cnpg.joshgordon.net/shared namespace label,
+    # which shared-pg-ingress checks.)
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: postgres
+            cnpg.io/cluster: shared
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+
+    # Own public URL and Authentik, via the external gateway.
+    - toFQDNs:
+        - matchName: netbird.joshgordon.app
+        - matchName: auth.joshgordon.app
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    #   CrowdSec envoy bouncer (ext_authz gRPC), added to the HTTPRoutes by Kyverno
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: crowdsec
+            app.kubernetes.io/name: envoy-proxy-bouncer
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    #   Upstream for netbird.joshgordon.app/oauth2: this same server
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: netbird
+            app.kubernetes.io/name: netbird
+            app.kubernetes.io/component: server
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+    #   Upstream for auth.joshgordon.app: Authentik server
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: authentik
+            app.kubernetes.io/name: authentik
+            app.kubernetes.io/component: server
+      toPorts:
+        - ports:
+            - port: "9000"
+              protocol: TCP
+
+    # Public internet, HTTPS only. Private, CGNAT and link-local ranges are
+    # excluded, which keeps out the LAN, the LB IPs and the nodes.
+    - toCIDRSet:
+        - cidr: 0.0.0.0/0
+          except:
+            - 10.0.0.0/8
+            - 172.16.0.0/12
+            - 192.168.0.0/16
+            - 100.64.0.0/10
+            - 169.254.0.0/16
+            - 127.0.0.0/8
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+---
+# The dashboard is static files behind nginx; the browser talks to the API,
+# not the pod. It gets DNS and nothing else.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: netbird-dashboard-egress
+  namespace: netbird
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: netbird
+      app.kubernetes.io/component: dashboard
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

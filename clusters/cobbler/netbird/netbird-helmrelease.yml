@@ -1,0 +1,248 @@
+---
+# NetBird self-hosted control plane: one combined server pod (management +
+# signal + relay) and the dashboard. Everything is served on one
+# hostname, netbird.joshgordon.app, through the external gateway:
+#
+#   GRPCRoute  signal + management gRPC           -> netbird-server-grpc  (h2c)
+#   HTTPRoute  /relay, /ws-proxy (WebSocket)       -> netbird-server-relay (ws)
+#   HTTPRoute  /api, /oauth2 (REST + embedded IdP) -> netbird-server
+#   HTTPRoute  / (dashboard)                       -> netbird-dashboard
+#
+# No STUN or TURN of our own. Peers use public STUN servers (see the
+# ConfigMap patch below), and NetBird's relay over WebSocket replaces TURN.
+# Running STUN in-cluster doesn't work well here anyway: Cilium's L2
+# announcements don't support externalTrafficPolicy: Local, so the server
+# would see SNATed node IPs instead of the peers' real addresses.
+#
+# Needs gatewayAPI.enableAlpn + enableAppProtocol in Cilium (cilium.yml),
+# otherwise gRPC is negotiated as HTTP/1.1 and fails.
+#
+# One hostname is required, not a choice: the server advertises the
+# exposedAddress host to peers for management, signal AND relay. The chart's
+# values warn that Cilium breaks gRPC when a GRPCRoute shares a listener with
+# HTTPRoutes; Cilium 1.20.5's translator always installs grpc_stats and
+# leaves the codec on AUTO, so that warning looks stale -- but it's the first
+# thing to suspect if gRPC fails.
+#
+# Kyverno adds the CrowdSec ExternalAuth filter to the HTTPRoutes (its policy
+# only matches HTTPRoutes, so the GRPCRoute is not behind the bouncer).
+#
+# Identity: NetBird's embedded IdP (issuer https://netbird.joshgordon.app/oauth2).
+# Authentik is added afterwards as an external connector in the dashboard
+# (Settings -> Identity Providers), so no Authentik credentials live here.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: netbird
+  namespace: flux-system
+spec:
+  interval: 10m
+  releaseName: netbird
+  targetNamespace: netbird
+  dependsOn:
+    - name: cilium
+  chartRef:
+    kind: OCIRepository
+    name: netbird
+    namespace: flux-system
+  postRenderers:
+    - kustomize:
+        patches:
+          # One server at a time: signal and relay state is in memory, and
+          # the data dir is a ReadWriteOnce Longhorn volume, so a
+          # RollingUpdate would wedge on the volume attachment anyway.
+          - target:
+              kind: Deployment
+              name: netbird-server
+            patch: |
+              - op: add
+                path: /spec/strategy
+                value:
+                  type: Recreate
+          # Public STUN instead of the embedded one. NetBird turns off its own
+          # STUN when server.stuns is set, but the chart has no value for it,
+          # so this replaces the chart's whole config template.
+          #
+          # !! This is a copy of the template chart 0.8.0 renders from the
+          # !! values below, plus `stuns`. It OVERRIDES those values: when you
+          # !! change server.config/database/oidc values or bump the chart,
+          # !! re-render (helm template ... | yq 'select(.kind=="ConfigMap")')
+          # !! and update this copy to match.
+          # !! The pod's checksum/config annotation is computed before this
+          # !! patch, so changing only this block won't restart the server --
+          # !! do `kubectl -n netbird rollout restart deploy/netbird-server`.
+          #
+          # ${...} placeholders are filled from Secrets by the chart's
+          # config-init container at pod start.
+          - target:
+              kind: ConfigMap
+              name: netbird-server
+            patch: |
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: netbird-server
+              data:
+                config.yaml.tpl: |
+                  server:
+                    listenAddress: ":80"
+                    exposedAddress: "https://netbird.joshgordon.app:443"
+                    stunPorts:
+                      - 3478
+                    stuns:
+                      - uri: "stun:stun.cloudflare.com:3478"
+                      - uri: "stun:stun.l.google.com:19302"
+                    metricsPort: 9090
+                    healthcheckAddress: ":9000"
+                    logLevel: "info"
+                    logFile: "console"
+
+                    authSecret: "${AUTH_SECRET}"
+                    dataDir: "/var/lib/netbird"
+
+                    auth:
+                      issuer: "https://netbird.joshgordon.app/oauth2"
+                      signKeyRefreshEnabled: true
+                      dashboardRedirectURIs:
+                        - "https://netbird.joshgordon.app/nb-auth"
+                        - "https://netbird.joshgordon.app/nb-silent-auth"
+                      cliRedirectURIs:
+                        - "http://localhost:53000/"
+
+                    store:
+                      engine: "postgres"
+                      dsn: "host=shared-rw.postgres.svc.cluster.local user=netbird password=${DB_PASSWORD} dbname=netbird port=5432 sslmode=require"
+                      encryptionKey: "${ENCRYPTION_KEY}"
+
+                    http:
+                      authAudience: ""
+                      idpSignKeyRefreshEnabled: true
+
+                    idpConfig:
+                      managerType: "embedded"
+                      clientConfig:
+                        issuer: ""
+                        tokenEndpoint: ""
+                        clientId: ""
+                        clientSecret: "${IDP_CLIENT_SECRET}"
+                        grantType: "client_credentials"
+  values:
+    # Main store in the shared CNPG cluster (see netbird-db.yml). The chart's
+    # db-seed init container would CREATE DATABASE if it were missing; the
+    # CNPG Database CR creates it first, so that step is a no-op.
+    database:
+      type: postgresql
+      host: shared-rw.postgres.svc.cluster.local
+      port: 5432
+      user: netbird
+      name: netbird
+      sslMode: require
+      passwordSecret:
+        secretName: netbird-db
+        secretKey: password
+
+    oidc:
+      enabled: true
+      idpManager:
+        enabled: true
+        managerType: embedded
+
+    server:
+      podLabels:
+        ingress.joshgordon.net/gateway: "true"
+
+      config:
+        exposedAddress: "https://netbird.joshgordon.app:443"
+        auth:
+          issuer: "https://netbird.joshgordon.app/oauth2"
+          dashboardRedirectURIs:
+            - "https://netbird.joshgordon.app/nb-auth"
+            - "https://netbird.joshgordon.app/nb-silent-auth"
+
+      secrets:
+        authSecret:
+          secretName: netbird-server
+          secretKey: authSecret
+          autoGenerate: false
+        storeEncryptionKey:
+          secretName: netbird-server
+          secretKey: encryptionKey
+          autoGenerate: false
+
+      # Still needed with Postgres: only the main store moves to CNPG. The
+      # data dir also holds files NetBird keeps locally (GeoLite databases,
+      # and possibly the activity-events and embedded-IdP stores -- check
+      # what's in /var/lib/netbird after first start).
+      persistentVolume:
+        enabled: true
+        storageClass: longhorn
+        size: 1Gi
+
+      # The chart always renders this Service. Embedded STUN is off (public
+      # STUN, see the ConfigMap patch), so keep it ClusterIP and unexposed.
+      stunService:
+        type: ClusterIP
+        port: 3478
+
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: external
+            namespace: external-gateway
+            sectionName: star-joshgordon-app
+        hostnames:
+          - netbird.joshgordon.app
+        rules:
+          - matches:
+              - path: { type: PathPrefix, value: /api }
+              - path: { type: PathPrefix, value: /oauth2 }
+
+      grpcRoute:
+        enabled: true
+        parentRefs:
+          - name: external
+            namespace: external-gateway
+            sectionName: star-joshgordon-app
+        hostnames:
+          - netbird.joshgordon.app
+        rules:
+          - matches:
+              - method: { service: signalexchange.SignalExchange }
+          - matches:
+              - method: { service: management.ManagementService }
+          - matches:
+              - method: { service: management.ProxyService }
+
+      relayHttpRoute:
+        enabled: true
+        parentRefs:
+          - name: external
+            namespace: external-gateway
+            sectionName: star-joshgordon-app
+        hostnames:
+          - netbird.joshgordon.app
+        rules:
+          - matches:
+              - path: { type: PathPrefix, value: /relay }
+              - path: { type: PathPrefix, value: /ws-proxy }
+
+    dashboard:
+      podLabels:
+        ingress.joshgordon.net/gateway: "true"
+      config:
+        mgmtApiEndpoint: "https://netbird.joshgordon.app"
+        mgmtGrpcApiEndpoint: "https://netbird.joshgordon.app"
+        authAuthority: "https://netbird.joshgordon.app/oauth2"
+        authClientId: netbird-dashboard
+        authAudience: netbird-dashboard
+      httpRoute:
+        enabled: true
+        parentRefs:
+          - name: external
+            namespace: external-gateway
+            sectionName: star-joshgordon-app
+        hostnames:
+          - netbird.joshgordon.app
+        rules:
+          - matches:
+              - path: { type: PathPrefix, value: / }

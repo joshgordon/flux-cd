@@ -1,0 +1,17 @@
+---
+# Community chart (KitStream/helms). The official netbirdio chart only does
+# Ingress; this one renders HTTPRoute/GRPCRoute. Published only as OCI.
+# Pinned: pre-1.0 and has shipped breaking changes between minors.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: netbird
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: oci://ghcr.io/kitstream/helms/netbird
+  ref:
+    tag: "0.8.0"
+  layerSelector:
+    mediaType: "application/vnd.cncf.helm.chart.content.v1.tar+gzip"
+    operation: copy

@@ -1,0 +1,77 @@
+---
+# NetBird's database on the shared CNPG cluster. Same layout as miniflux:
+# the credentials live in OpenBao and are read twice, once in `postgres`
+# for the CNPG role and once in `netbird` for the server.
+#
+# Create before merging:
+#   bao kv put secret/external-secrets/db/netbird \
+#     username=netbird password="$(openssl rand -base64 32 | tr -d '/+=')"
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: netbird-db-creds
+  namespace: postgres
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: netbird-db-creds
+    template:
+      type: kubernetes.io/basic-auth
+  data:
+    - secretKey: username
+      remoteRef:
+        key: external-secrets/db/netbird
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: external-secrets/db/netbird
+        property: password
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: shared-netbird
+  namespace: postgres
+spec:
+  cluster:
+    name: shared
+  name: netbird
+  ensure: present
+  login: true
+  passwordSecret:
+    name: netbird-db-creds
+  databaseRoleReclaimPolicy: retain
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: shared-netbird
+  namespace: postgres
+spec:
+  cluster:
+    name: shared
+  name: netbird
+  owner: netbird
+---
+# Password for the server's DSN (the chart reads just the password; host,
+# user and db name are in the HelmRelease values).
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: netbird-db
+  namespace: netbird
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: netbird-db
+  data:
+    - secretKey: password
+      remoteRef:
+        key: external-secrets/db/netbird
+        property: password
