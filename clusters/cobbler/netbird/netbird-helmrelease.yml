@@ -111,7 +111,7 @@ spec:
 
                     store:
                       engine: "postgres"
-                      dsn: "host=shared-rw.postgres.svc.cluster.local user=netbird password=${DB_PASSWORD} dbname=netbird port=5432 sslmode=require"
+                      dsn: "host=shared-rw.postgres.svc.cluster.local. user=netbird password=${DB_PASSWORD} dbname=netbird port=5432 sslmode=require"
                       encryptionKey: "${ENCRYPTION_KEY}"
 
                     http:
@@ -130,9 +130,15 @@ spec:
     # Main store in the shared CNPG cluster (see netbird-db.yml). The chart's
     # db-seed init container would CREATE DATABASE if it were missing; the
     # CNPG Database CR creates it first, so that step is a no-op.
+    #
+    # The trailing dot on host matters: it makes the name absolute, skipping
+    # the resolv.conf search list. gordns.net (last search domain) answers
+    # unknown names with NOERROR/no records instead of NXDOMAIN, and the
+    # chart's Initium init containers give up there instead of trying the
+    # bare name, so db-wait hangs forever.
     database:
       type: postgresql
-      host: shared-rw.postgres.svc.cluster.local
+      host: shared-rw.postgres.svc.cluster.local.
       port: 5432
       user: netbird
       name: netbird
