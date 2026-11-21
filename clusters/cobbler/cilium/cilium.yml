@@ -48,3 +48,10 @@ spec:
     tunnelProtocol: vxlan
     gatewayAPI:
       enabled: true
+      # Advertise h2 in TLS ALPN on gateway listeners. gRPC (NetBird) needs
+      # it; it also means browsers now get HTTP/2 on every gateway site.
+      enableAlpn: true
+      # Honor Service port appProtocol (kubernetes.io/h2c, kubernetes.io/ws)
+      # when picking the upstream codec. Needed for NetBird's gRPC and relay
+      # Services. No other gateway backend sets appProtocol today.
+      enableAppProtocol: true
