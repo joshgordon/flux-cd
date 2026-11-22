@@ -131,6 +131,7 @@ spec:
 
                     auth:
                       issuer: "https://netbird.joshgordon.app/oauth2"
+                      localAuthDisabled: true
                       signKeyRefreshEnabled: true
                       dashboardRedirectURIs:
                         - "https://netbird.joshgordon.app/nb-auth"
