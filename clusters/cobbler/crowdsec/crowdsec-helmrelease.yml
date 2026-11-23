@@ -44,6 +44,26 @@ spec:
           client:
             unregister_on_exit: true
 
+      # Mounted in the agent pods.
+      parsers:
+        s02-enrich:
+          # Requests the gateway's ext_authz filter rejected (response_flags
+          # UAEX) never reached an app, so they aren't evidence of probing.
+          # Counting them caused two problems:
+          #   * an ext_authz timeout/error answers 403, so a burst of them
+          #     looked like http-probing and got a legitimate user banned;
+          #   * once banned, every request gets the bouncer's 403, which
+          #     counted as more probing and renewed the ban (4h -> 8h -> ...).
+          # AppSec blocks are unaffected: they raise their own alerts.
+          envoy-ext-authz-whitelist.yaml: |
+            name: joshgordon/envoy-ext-authz-whitelist
+            description: "Ignore requests rejected by the gateway's ext_authz filter"
+            filter: "evt.Meta.log_type == 'http_access-log' && evt.Unmarshaled.envoy != nil"
+            whitelist:
+              reason: "ext_authz denied or failed (UAEX); never reached a backend"
+              expression:
+                - evt.Unmarshaled.envoy.response_flags == 'UAEX'
+
       profiles.yaml: |
         name: default_ip_remediation
         filters:

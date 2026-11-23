@@ -62,6 +62,14 @@ spec:
         # Only covers AppSec errors; IP bans from LAPI are still enforced.
         # Consider false once you trust the setup.
         failOpen: true
+        # Must stay well under Envoy's ext_authz timeout. Cilium sets no
+        # timeout on the gRPC ext_authz filter (and Gateway API has no field
+        # for one), so Envoy uses its 200ms default and, failing closed,
+        # answers 403 when it runs out. With the chart default of 5s, a slow
+        # AppSec made Envoy give up first, so failOpen above never got a
+        # chance and a burst of Immich thumbnails came back as 403s, which
+        # CrowdSec then banned as http-probing.
+        httpTimeout: "150ms"
       # The bouncer reads the client IP from X-Forwarded-For. If testing
       # shows it picking a node/pod IP instead of the real client, list the
       # addresses it should skip over here (pod CIDR, node IPs, any CDN).
