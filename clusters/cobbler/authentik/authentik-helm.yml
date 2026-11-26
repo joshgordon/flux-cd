@@ -55,12 +55,6 @@ spec:
       enabled: false
 
     global:
-      # TEMPORARY: security release 2026.8.7 (GHSA-55mc-jpww-xm3p et al.)
-      # shipped as images before a matching chart. Remove this override once
-      # the chart version above is bumped to >= 2026.8.7.
-      image:
-        repository: ghcr.io/goauthentik/server
-        tag: "2026.8.7"
       envFrom:
         - secretRef:
             name: authentik-env
