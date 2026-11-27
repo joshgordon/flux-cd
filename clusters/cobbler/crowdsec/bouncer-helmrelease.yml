@@ -37,6 +37,19 @@ spec:
                               app.kubernetes.io/name: envoy-proxy-bouncer
   values:
     replicaCount: 2
+    # The chart's default is a 100m CPU limit. Envoy only waits 200ms for an
+    # ext_authz answer (Cilium exposes no setting for it), and a page load
+    # sends dozens of checks at once, so the bouncer was CPU-throttled in
+    # ~45-50% of its active periods and checks timed out as empty 403s
+    # (Immich JS chunks failing to load). No CPU limit: throttling is what
+    # causes the stalls; the request and memory limit keep it in check.
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: null # removes the chart's 100m; omitting the key would keep it
+        memory: 128Mi
     # Gives a predictable Service name: crowdsec-envoy-bouncer.crowdsec.svc
     fullnameOverride: crowdsec-envoy-bouncer
     image:
