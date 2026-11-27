@@ -11,6 +11,28 @@ spec:
       targetPort: 8080
       protocol: TCP
 ---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: immich-static
+  namespace: legacy-nginx
+  labels:
+    crowdsec.joshgordon.app/skip: "true" # Kyverno won't add the bouncer
+spec:
+  parentRefs:
+    - name: external
+      namespace: external-gateway
+  hostnames:
+    - immich.joshgordon.app
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /_app/immutable/
+      backendRefs:
+        - name: immich
+          port: 8080
+---
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
