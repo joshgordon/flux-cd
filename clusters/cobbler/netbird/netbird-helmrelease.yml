@@ -186,7 +186,7 @@ spec:
       # Newer than the chart's appVersion (0.82.0); Renovate bumps it.
       image:
         # renovate: datasource=docker depName=netbirdio/netbird-server
-        tag: "0.83.2"
+        tag: "0.84.0"
 
       podLabels:
         ingress.joshgordon.net/gateway: "true"
